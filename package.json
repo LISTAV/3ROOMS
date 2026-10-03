@@ -1,0 +1,34 @@
+{
+  "name": "3rooms",
+  "version": "1.0.0",
+  "description": "Core computational geometry foundation for 2D CAD floor plan engine",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "tsc"
+  },
+  "keywords": [
+    "cad",
+    "geometry",
+    "floorplan"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "@types/rbush": "^4.0.0",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "dependencies": {
+    "lucide": "^1.51.0",
+    "rbush": "^4.0.1",
+    "zustand": "^5.0.15"
+  }
+}
