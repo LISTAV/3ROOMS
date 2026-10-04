@@ -1,5 +1,9 @@
 import type { Vertex, Wall, Point2D } from '../../core/types.js';
-import { computeDimensionLine, normalizeTextAngle } from '../renderer/DimensionRenderer.js';
+import {
+  computeDimensionLine,
+  normalizeTextAngle,
+  drawCornerAngleIndicator,
+} from '../renderer/DimensionRenderer.js';
 import { formatLength, type UnitSettings, DEFAULT_UNIT_SETTINGS } from '../../core/units/unitFormatter.js';
 
 export interface DimensionLayerOptions {
@@ -60,6 +64,32 @@ export class DimensionLayer {
       if (!startV || !endV) continue;
 
       this.renderWallDimension(ctx, startV, endV, zoom, screenPixel, unitSettings);
+    }
+
+    // 2. Render CAD corner angle references at wall corners
+    const vertexWallMap: Record<string, Wall[]> = {};
+    for (const wall of wallList) {
+      if (!vertexWallMap[wall.startId]) vertexWallMap[wall.startId] = [];
+      if (!vertexWallMap[wall.endId]) vertexWallMap[wall.endId] = [];
+      vertexWallMap[wall.startId].push(wall);
+      vertexWallMap[wall.endId].push(wall);
+    }
+
+    for (const [vId, connected] of Object.entries(vertexWallMap)) {
+      if (connected.length === 2) {
+        const cornerV = vertices[vId];
+        if (!cornerV) continue;
+
+        const w1 = connected[0];
+        const w2 = connected[1];
+        const p1Id = w1.startId === vId ? w1.endId : w1.startId;
+        const p2Id = w2.startId === vId ? w2.endId : w2.startId;
+        const p1 = vertices[p1Id];
+        const p2 = vertices[p2Id];
+        if (!p1 || !p2) continue;
+
+        drawCornerAngleIndicator(ctx, p1, cornerV, p2, zoom, true);
+      }
     }
 
     ctx.restore();

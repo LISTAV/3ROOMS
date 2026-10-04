@@ -2,7 +2,13 @@ import type { Point2D } from '../../core/types.js';
 import type { SnapResult } from '../../core/snap/SnapEngine.js';
 import { computeParallelOffset } from '../../core/math/line.js';
 import { distance } from '../../core/math/vector.js';
-import { drawDimension, normalizeTextAngle } from './DimensionRenderer.js';
+import {
+  drawDimension,
+  normalizeTextAngle,
+  computeLineAngleDeg,
+  drawCornerAngleIndicator,
+  drawAngleReferenceArc,
+} from './DimensionRenderer.js';
 import { formatLength } from '../../core/units/unitFormatter.js';
 import { uiStore } from '../../core/store/uiStore.js';
 
@@ -93,14 +99,16 @@ export class OverlayRenderer {
   }
 
   /**
-   * Renders a live preview of the wall being drawn with thickness and dimension annotation.
+   * Renders a live preview of the wall being drawn with thickness, angle references,
+   * corner indicators, and live dimension annotation.
    */
   public static renderWallPreview(
     ctx: CanvasRenderingContext2D,
     start: Point2D,
     end: Point2D,
     thickness: number,
-    zoom: number
+    zoom: number,
+    previousPoint?: Point2D | null
   ): void {
     const len = distance(start, end);
     if (len < 1e-3) return;
@@ -141,7 +149,16 @@ export class OverlayRenderer {
     // 3. Live CAD dimension annotation offset 300mm outward
     drawDimension(ctx, start, end, 300, zoom);
 
-    // 4. Centered live measurement tape badge in preferred unit
+    // 4. Angle & Corner Reference
+    if (previousPoint) {
+      // Continuing chain or attached to corner: show live corner angle
+      drawCornerAngleIndicator(ctx, previousPoint, start, end, zoom, true, 'Corner: ');
+    } else {
+      // Standalone wall: show polar baseline and angle arc
+      drawAngleReferenceArc(ctx, start, end, zoom);
+    }
+
+    // 5. Centered live measurement tape badge with angle in preferred unit
     if (len > 10) {
       const midX = (start.x + end.x) / 2;
       const midY = (start.y + end.y) / 2;
@@ -160,21 +177,28 @@ export class OverlayRenderer {
       const unitSettings = uiStore.getState().unitSettings;
       const lengthText = formatLength(len, unitSettings);
 
+      const { deg, isCardinal, is45, cardinalAngle } = computeLineAngleDeg(start, end);
+      const angleLabel = isCardinal ? `${cardinalAngle}° [ORTHO]` : `${deg.toFixed(is45 ? 0 : 1)}°`;
+      const badgeText = `${lengthText}   |   ${angleLabel}`;
+
       ctx.save();
       ctx.translate(badgeX, badgeY);
       ctx.rotate(angle);
 
       ctx.font = `600 ${11 * screenPixel}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      const textWidth = ctx.measureText(lengthText).width;
-      const padX = 7 * screenPixel;
-      const padY = 3.5 * screenPixel;
+      const textWidth = ctx.measureText(badgeText).width;
+      const padX = 8 * screenPixel;
+      const padY = 4 * screenPixel;
       const pillW = textWidth + padX * 2;
       const pillH = 14 * screenPixel + padY * 2;
       const radius = 4 * screenPixel;
 
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.strokeStyle = '#38bdf8';
-      ctx.lineWidth = 1 * screenPixel;
+      const borderColor = isCardinal ? '#10b981' : is45 ? '#38bdf8' : '#64748b';
+      const textColor = isCardinal ? '#10b981' : is45 ? '#38bdf8' : '#f8fafc';
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = (isCardinal ? 1.5 : 1) * screenPixel;
 
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -185,10 +209,10 @@ export class OverlayRenderer {
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#38bdf8';
+      ctx.fillStyle = textColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(lengthText, 0, 0);
+      ctx.fillText(badgeText, 0, 0);
       ctx.restore();
     }
   }

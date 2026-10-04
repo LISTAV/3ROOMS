@@ -1,7 +1,8 @@
-import type { Point2D, RoomFace } from '../../core/types.js';
+import type { Point2D, RoomFace, Wall } from '../../core/types.js';
 import type { Viewport } from '../viewport/Viewport.js';
 import type { Tool, ToolContext } from './Tool.js';
 import { planStore } from '../../core/store/planStore.js';
+import { drawCornerAngleIndicator } from '../renderer/DimensionRenderer.js';
 import { projectPointOnSegment } from '../../core/math/line.js';
 import { distance } from '../../core/math/vector.js';
 import {
@@ -762,5 +763,31 @@ export class SelectTool implements Tool {
     }
 
     ctx.restore();
+
+    // 3. Render Corner Angle Reference for Selected Walls and Vertices
+    if (state.selectedIds && state.selectedIds.length > 0) {
+      const selectedWalls = state.selectedIds
+        .map((id) => state.walls[id])
+        .filter((w): w is Wall => Boolean(w));
+
+      for (const wall of selectedWalls) {
+        for (const vId of [wall.startId, wall.endId]) {
+          const cornerV = state.vertices[vId];
+          if (!cornerV) continue;
+          const otherWalls = Object.values(state.walls).filter(
+            (w) => w.id !== wall.id && (w.startId === vId || w.endId === vId)
+          );
+          for (const ow of otherWalls) {
+            const p1Id = wall.startId === vId ? wall.endId : wall.startId;
+            const p2Id = ow.startId === vId ? ow.endId : ow.startId;
+            const p1 = state.vertices[p1Id];
+            const p2 = state.vertices[p2Id];
+            if (p1 && p2) {
+              drawCornerAngleIndicator(ctx, p1, cornerV, p2, viewport.zoom, true);
+            }
+          }
+        }
+      }
+    }
   }
 }

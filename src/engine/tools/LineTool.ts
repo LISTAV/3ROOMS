@@ -5,7 +5,11 @@ import { planStore } from '../../core/store/planStore.js';
 import { uiStore } from '../../core/store/uiStore.js';
 import { distance } from '../../core/math/vector.js';
 import { formatLength } from '../../core/units/unitFormatter.js';
-import { normalizeTextAngle } from '../renderer/DimensionRenderer.js';
+import {
+  normalizeTextAngle,
+  computeLineAngleDeg,
+  drawAngleReferenceArc,
+} from '../renderer/DimensionRenderer.js';
 
 /**
  * Snaps a 2D vector to the nearest 45-degree angle (0°, 45°, 90°, 135°, 180°, etc.).
@@ -196,7 +200,10 @@ export class LineTool implements Tool {
     ctx.fill();
     ctx.stroke();
 
-    // 3. Live Length Dimension Badge
+    // 3. Polar Angle Reference Arc from start point
+    drawAngleReferenceArc(ctx, p1, p2, zoom);
+
+    // 4. Live Length & Angle Dimension Badge
     if (len > 30) {
       const midX = (p1.x + p2.x) / 2;
       const midY = (p1.y + p2.y) / 2;
@@ -214,22 +221,28 @@ export class LineTool implements Tool {
       angle = normalizeTextAngle(angle).angle;
 
       const lengthText = formatLength(len, unitSettings);
+      const { deg, isCardinal, is45, cardinalAngle } = computeLineAngleDeg(p1, p2);
+      const angleLabel = isCardinal ? `${cardinalAngle}° [ORTHO]` : `${deg.toFixed(is45 ? 0 : 1)}°`;
+      const badgeText = `${lengthText}   |   ${angleLabel}`;
 
       ctx.save();
       ctx.translate(badgeX, badgeY);
       ctx.rotate(angle);
 
       ctx.font = `600 ${11 * screenPixel}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      const textWidth = ctx.measureText(lengthText).width;
-      const padX = 7 * screenPixel;
-      const padY = 3.5 * screenPixel;
+      const textWidth = ctx.measureText(badgeText).width;
+      const padX = 8 * screenPixel;
+      const padY = 4 * screenPixel;
       const pillW = textWidth + padX * 2;
       const pillH = 14 * screenPixel + padY * 2;
       const radius = 4 * screenPixel;
 
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 1 * screenPixel;
+      const borderColor = isCardinal ? '#10b981' : is45 ? '#38bdf8' : 'rgba(255, 255, 255, 0.2)';
+      const textColor = isCardinal ? '#10b981' : is45 ? '#38bdf8' : '#f8fafc';
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
+      ctx.strokeStyle = borderColor;
+      ctx.lineWidth = (isCardinal ? 1.5 : 1) * screenPixel;
 
       ctx.beginPath();
       if (ctx.roundRect) {
@@ -240,10 +253,10 @@ export class LineTool implements Tool {
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#f8fafc';
+      ctx.fillStyle = textColor;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(lengthText, 0, 0);
+      ctx.fillText(badgeText, 0, 0);
 
       ctx.restore();
     }

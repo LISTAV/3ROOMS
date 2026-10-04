@@ -4,6 +4,7 @@ import type { SnapResult } from '../../core/snap/SnapEngine.js';
 import { distance } from '../../core/math/vector.js';
 import { planStore } from '../../core/store/planStore.js';
 import { OverlayRenderer } from '../renderer/OverlayRenderer.js';
+import { drawCornerAngleIndicator } from '../renderer/DimensionRenderer.js';
 import { uiStore } from '../../core/store/uiStore.js';
 import type { Tool, ToolContext } from './Tool.js';
 
@@ -12,7 +13,7 @@ export type WallToolStatus = 'idle' | 'drawing';
 /**
  * Interactive Wall Tool supporting point-and-click placement,
  * continuous wall chaining, snap-to-origin loop closure, live dimensioning,
- * and Escape/right-click termination.
+ * corner angle references, and Escape/right-click termination.
  */
 export class WallTool implements Tool {
   public readonly id: string = 'wall';
@@ -20,6 +21,7 @@ export class WallTool implements Tool {
   public status: WallToolStatus = 'idle';
   public startPoint: Point2D | null = null;
   public currentPoint: Point2D | null = null;
+  public previousPoint: Point2D | null = null;
   public firstVertexId: string | null = null;
   public activeSnapResult: SnapResult | null = null;
   public defaultThickness: number = 150; // mm
@@ -39,6 +41,7 @@ export class WallTool implements Tool {
     this.status = 'idle';
     this.startPoint = null;
     this.currentPoint = null;
+    this.previousPoint = null;
     this.firstVertexId = null;
     this.activeSnapResult = null;
   }
@@ -89,6 +92,21 @@ export class WallTool implements Tool {
           : null;
       this.firstVertexId = snapTargetId;
 
+      // If starting from an existing vertex, look up connected walls to find reference arm
+      let refPrev: Point2D | null = null;
+      if (snapTargetId) {
+        const store = planStore.getState();
+        const connectedWall = Object.values(store.walls).find(
+          (w) => w.startId === snapTargetId || w.endId === snapTargetId
+        );
+        if (connectedWall) {
+          const otherId = connectedWall.startId === snapTargetId ? connectedWall.endId : connectedWall.startId;
+          const otherV = store.vertices[otherId];
+          if (otherV) refPrev = { x: otherV.x, y: otherV.y };
+        }
+      }
+      this.previousPoint = refPrev;
+
       this.status = 'drawing';
       ctx.requestRender();
       return;
@@ -133,6 +151,7 @@ export class WallTool implements Tool {
         this.reset();
       } else {
         // Continue chain from the endpoint
+        this.previousPoint = { ...this.startPoint };
         this.startPoint = { ...this.currentPoint };
       }
 
@@ -158,15 +177,43 @@ export class WallTool implements Tool {
       OverlayRenderer.renderSnapMarker(ctx, this.activeSnapResult, viewport.zoom);
     }
 
-    // 2. Render live preview of wall being drawn with dimension annotation
+    // 2. Render live preview of wall being drawn with dimension and angle annotation
     if (this.status === 'drawing' && this.startPoint && this.currentPoint) {
       OverlayRenderer.renderWallPreview(
         ctx,
         this.startPoint,
         this.currentPoint,
         this.defaultThickness,
-        viewport.zoom
+        viewport.zoom,
+        this.previousPoint
       );
+
+      // 3. If snapping to another vertex during drawing, preview closing corner angle
+      if (
+        this.activeSnapResult?.snapType === 'vertex' &&
+        this.activeSnapResult.snappedVertexId
+      ) {
+        const snapVId = this.activeSnapResult.snappedVertexId;
+        const store = planStore.getState();
+        const snapWall = Object.values(store.walls).find(
+          (w) => w.startId === snapVId || w.endId === snapVId
+        );
+        if (snapWall) {
+          const otherId = snapWall.startId === snapVId ? snapWall.endId : snapWall.startId;
+          const otherV = store.vertices[otherId];
+          if (otherV && this.currentPoint) {
+            drawCornerAngleIndicator(
+              ctx,
+              this.startPoint,
+              this.currentPoint,
+              otherV,
+              viewport.zoom,
+              true,
+              'Corner: '
+            );
+          }
+        }
+      }
     }
   }
 }
