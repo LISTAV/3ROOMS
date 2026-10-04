@@ -101,16 +101,14 @@ export function computeSheetLayout(
   const pageWidthMm = isLandscape ? longDim : shortDim;
   const pageHeightMm = isLandscape ? shortDim : longDim;
 
-  // Title Block height (scales tastefully with sheet size)
-  const titleBlockHeight = includeTitleBlock
-    ? Math.max(16, Math.min(26, pageHeightMm * 0.075))
-    : 0;
+  // Title block / bottom footer removed so drawing is never obscured and uses full sheet height
+  const titleBlockHeight = 0;
 
   // Drawing boundaries inside margins
   const drawAreaX = marginMm;
   const drawAreaY = marginMm;
   const drawAreaWidth = Math.max(50, pageWidthMm - marginMm * 2);
-  const drawAreaHeight = Math.max(50, pageHeightMm - marginMm * 2 - (titleBlockHeight > 0 ? titleBlockHeight + 4 : 0));
+  const drawAreaHeight = Math.max(50, pageHeightMm - marginMm * 2);
 
   // Scale plan to fit drawing area preserving aspect ratio
   const fitRatio = Math.min(drawAreaWidth / bbox.width, drawAreaHeight / bbox.height);
@@ -119,9 +117,9 @@ export function computeSheetLayout(
   const planRenderX = drawAreaX + (drawAreaWidth - planRenderWidth) / 2;
   const planRenderY = drawAreaY + (drawAreaHeight - planRenderHeight) / 2;
 
-  // Title block coordinates across bottom
+  // Title block coordinates across bottom (zero height)
   const titleBlockX = marginMm;
-  const titleBlockY = pageHeightMm - marginMm - titleBlockHeight;
+  const titleBlockY = pageHeightMm - marginMm;
   const titleBlockWidth = drawAreaWidth;
 
   return {
@@ -145,20 +143,15 @@ export function computeSheetLayout(
 }
 
 /**
- * Draws the vector architectural border and title block on the jsPDF document.
+ * Draws the vector architectural border on the jsPDF document.
  */
 function drawPdfSheetElements(
   doc: jsPDF,
   layout: ResolvedSheetLayout,
   options: PdfExportOptions
 ): void {
-  const { pageWidthMm, pageHeightMm, marginMm, titleBlockX, titleBlockY, titleBlockWidth, titleBlockHeight } = layout;
+  const { pageWidthMm, pageHeightMm, marginMm } = layout;
   const includeBorder = options.includeBorder ?? true;
-  const includeTitleBlock = options.includeTitleBlock ?? true;
-  const cleanTitle = (options.projectName || 'Untitled Floor Plan').replace(/\.(floorplan|json)$/i, '');
-  const unitSettings = options.unitSettings || uiStore.getState().unitSettings;
-  const unitLabel = unitSettings.lengthUnit?.toUpperCase() || 'MM';
-  const paperKey = options.paperSize || 'A3';
 
   // 1. Classical Architectural Sheet Border
   if (includeBorder) {
@@ -174,67 +167,6 @@ function drawPdfSheetElements(
     doc.setDrawColor(148, 163, 184); // slate-400
     doc.setLineWidth(0.25);
     doc.rect(innerMargin, innerMargin, pageWidthMm - innerMargin * 2, pageHeightMm - innerMargin * 2);
-  }
-
-  // 2. Professional Architectural Title Block (Bottom Bar)
-  if (includeTitleBlock && titleBlockHeight > 0) {
-    // Title block background
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(30, 41, 59); // slate-800
-    doc.setLineWidth(0.4);
-    doc.rect(titleBlockX, titleBlockY, titleBlockWidth, titleBlockHeight, 'FD');
-
-    // Accent line along top of title block
-    doc.setDrawColor(37, 99, 235); // blue-600
-    doc.setLineWidth(0.8);
-    doc.line(titleBlockX, titleBlockY, titleBlockX + titleBlockWidth, titleBlockY);
-
-    // Section 1: Project & Sheet Title (Left 45%)
-    const col1W = titleBlockWidth * 0.45;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(Math.min(13, titleBlockHeight * 0.5));
-    doc.setTextColor(15, 23, 42);
-    doc.text(cleanTitle, titleBlockX + 5, titleBlockY + titleBlockHeight * 0.45);
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(Math.min(8, titleBlockHeight * 0.3));
-    doc.setTextColor(100, 116, 139);
-    doc.text('ARCHITECTURAL FLOOR PLAN', titleBlockX + 5, titleBlockY + titleBlockHeight * 0.8);
-
-    // Vertical Divider 1
-    doc.setDrawColor(203, 213, 225);
-    doc.setLineWidth(0.25);
-    doc.line(titleBlockX + col1W, titleBlockY, titleBlockX + col1W, titleBlockY + titleBlockHeight);
-
-    // Section 2: Metadata (Middle 35%)
-    const col2X = titleBlockX + col1W + 4;
-    const col2W = titleBlockWidth * 0.35;
-    const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-    const scaleDesc = options.scaleDescription || 'Fit to Sheet (Print Scale)';
-
-    doc.setFontSize(Math.min(7.5, titleBlockHeight * 0.28));
-    doc.setTextColor(71, 85, 105);
-    doc.text(`SHEET SIZE: ${paperKey} (${Math.round(pageWidthMm)} × ${Math.round(pageHeightMm)} mm)`, col2X, titleBlockY + titleBlockHeight * 0.35);
-    doc.text(`SCALE: ${scaleDesc}  •  UNITS: ${unitLabel}`, col2X, titleBlockY + titleBlockHeight * 0.65);
-    doc.text(`DATE: ${dateStr}`, col2X, titleBlockY + titleBlockHeight * 0.9);
-
-    // Vertical Divider 2
-    doc.line(titleBlockX + col1W + col2W, titleBlockY, titleBlockX + col1W + col2W, titleBlockY + titleBlockHeight);
-
-    // Section 3: Sheet Number Stamp (Right 20%)
-    const col3X = titleBlockX + col1W + col2W + 4;
-    const col3W = titleBlockWidth - (col1W + col2W);
-    const sheetNum = options.sheetNumber || 'A-101';
-
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(Math.min(14, titleBlockHeight * 0.55));
-    doc.setTextColor(37, 99, 235);
-    doc.text(sheetNum, col3X + col3W / 2 - 4, titleBlockY + titleBlockHeight * 0.55, { align: 'center' });
-
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(Math.min(7, titleBlockHeight * 0.25));
-    doc.setTextColor(148, 163, 184);
-    doc.text('SHEET NUMBER', col3X + col3W / 2 - 4, titleBlockY + titleBlockHeight * 0.85, { align: 'center' });
   }
 }
 
@@ -256,13 +188,14 @@ export async function exportToPdfBlob(
   const offscreenCanvas = renderToOffscreenCanvas(state, {
     scale: safeScale,
     maxDimension: 4096,
+    paddingMm: 600,
     includeDimensions: options.includeDimensions ?? true,
     includeCornerAngles: options.includeCornerAngles ?? true,
     includeLines: options.includeLines ?? true,
     includeRooms: options.includeRooms ?? true,
     includeFurniture: options.includeFurniture ?? true,
     includeImages: options.includeImages ?? true,
-    includeTitleBlock: false, // The title block is rendered natively in vector on the PDF page
+    includeTitleBlock: false,
     unitSettings: options.unitSettings,
     projectName: options.projectName,
   });
@@ -370,47 +303,6 @@ export function renderSheetPreview(
     ctx.strokeStyle = '#cbd5e1';
     ctx.lineWidth = Math.max(1, 0.25 * pxPerMm);
     ctx.strokeRect(sheetX + innerM, sheetY + innerM, sheetW - innerM * 2, sheetH - innerM * 2);
-  }
-
-  // Draw Title Block Preview
-  if ((options.includeTitleBlock ?? true) && titleBlockHeight > 0) {
-    const tbX = sheetX + titleBlockX * pxPerMm;
-    const tbY = sheetY + titleBlockY * pxPerMm;
-    const tbW = titleBlockWidth * pxPerMm;
-    const tbH = titleBlockHeight * pxPerMm;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(tbX, tbY, tbW, tbH);
-
-    ctx.strokeStyle = '#2563eb';
-    ctx.lineWidth = Math.max(1.5, 0.8 * pxPerMm);
-    ctx.beginPath();
-    ctx.moveTo(tbX, tbY);
-    ctx.lineTo(tbX + tbW, tbY);
-    ctx.stroke();
-
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(tbX, tbY, tbW, tbH);
-
-    // Title Block Text preview
-    const cleanTitle = (options.projectName || 'Untitled Floor Plan').replace(/\.(floorplan|json)$/i, '');
-    ctx.fillStyle = '#0f172a';
-    ctx.font = `600 ${Math.max(9, Math.round(tbH * 0.36))}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(cleanTitle, tbX + 8, tbY + tbH * 0.4);
-
-    const paperKey = options.paperSize || 'A3';
-    ctx.fillStyle = '#64748b';
-    ctx.font = `500 ${Math.max(7, Math.round(tbH * 0.24))}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.fillText(`${paperKey} • Fit to Sheet`, tbX + 8, tbY + tbH * 0.75);
-
-    // Sheet number
-    ctx.fillStyle = '#2563eb';
-    ctx.font = `bold ${Math.max(10, Math.round(tbH * 0.42))}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.fillText('A-101', tbX + tbW - 10, tbY + tbH * 0.5);
   }
 
   // Draw Simplified Floor Plan Preview on Sheet

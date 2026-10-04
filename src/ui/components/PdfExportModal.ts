@@ -172,10 +172,6 @@ export class PdfExportModal {
                     <input type="checkbox" id="pdf-inc-border" ${this.includeBorder ? 'checked' : ''} />
                     <span>Double-line Architectural Border Frame</span>
                   </label>
-                  <label class="checkbox-label">
-                    <input type="checkbox" id="pdf-inc-titleblock" ${this.includeTitleBlock ? 'checked' : ''} />
-                    <span>Title Block Banner (Project & Sheet Info)</span>
-                  </label>
                 </div>
               </div>
 
@@ -207,15 +203,9 @@ export class PdfExportModal {
               </div>
 
               <!-- 6. Metadata -->
-              <div class="form-row">
-                <div class="form-group form-col-8">
-                  <label class="form-label" for="pdf-project-title">Sheet Project Title</label>
-                  <input type="text" class="form-input" id="pdf-project-title" value="${this.sheetTitle}" />
-                </div>
-                <div class="form-group form-col-4">
-                  <label class="form-label" for="pdf-sheet-num">Sheet #</label>
-                  <input type="text" class="form-input" id="pdf-sheet-num" value="${this.sheetNumber}" />
-                </div>
+              <div class="form-group">
+                <label class="form-label" for="pdf-project-title">Document Project Title</label>
+                <input type="text" class="form-input" id="pdf-project-title" value="${this.sheetTitle}" />
               </div>
             </div>
 
@@ -228,7 +218,7 @@ export class PdfExportModal {
               <div class="preview-canvas-container">
                 <canvas id="pdf-preview-canvas" width="520" height="380"></canvas>
               </div>
-              <span class="preview-caption">Shows true physical page aspect ratio, outer borders, title block, and plan fit.</span>
+              <span class="preview-caption">Shows true physical page aspect ratio, outer borders, and floor plan fit.</span>
             </div>
           </div>
 
@@ -295,12 +285,6 @@ export class PdfExportModal {
       this.updatePreview();
     });
 
-    const tbCb = this.element.querySelector<HTMLInputElement>('#pdf-inc-titleblock');
-    tbCb?.addEventListener('change', () => {
-      this.includeTitleBlock = tbCb.checked;
-      this.updatePreview();
-    });
-
     const dimCb = this.element.querySelector<HTMLInputElement>('#pdf-inc-dim');
     dimCb?.addEventListener('change', () => {
       this.includeDimensions = dimCb.checked;
@@ -335,12 +319,6 @@ export class PdfExportModal {
     const titleInput = this.element.querySelector<HTMLInputElement>('#pdf-project-title');
     titleInput?.addEventListener('input', () => {
       this.sheetTitle = titleInput.value.trim() || 'Floor Plan';
-      this.updatePreview();
-    });
-
-    const sheetNumInput = this.element.querySelector<HTMLInputElement>('#pdf-sheet-num');
-    sheetNumInput?.addEventListener('input', () => {
-      this.sheetNumber = sheetNumInput.value.trim() || 'A-101';
       this.updatePreview();
     });
 

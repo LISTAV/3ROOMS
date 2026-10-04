@@ -208,9 +208,9 @@ describe('Architectural PDF Export Engine (src/core/export/pdfExporter.ts)', () 
       expect(layout.pageHeightMm).toBe(297);
       expect(layout.isLandscape).toBe(true);
       expect(layout.marginMm).toBe(15);
-      expect(layout.titleBlockHeight).toBeGreaterThan(0);
-      expect(layout.drawAreaWidth).toBeLessThan(420);
-      expect(layout.drawAreaHeight).toBeLessThan(297);
+      expect(layout.titleBlockHeight).toBe(0);
+      expect(layout.drawAreaWidth).toBe(420 - 15 * 2);
+      expect(layout.drawAreaHeight).toBe(297 - 15 * 2);
     });
 
     it('computes correct orientation for portrait request', () => {
