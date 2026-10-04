@@ -252,11 +252,118 @@ export const DEFAULT_FURNITURE_CATALOG: FurnitureDefinition[] = [
   <line x1="400" y1="70" x2="400" y2="130" stroke="#334155" stroke-width="12" stroke-linecap="round" />
 </svg>`,
   },
+
+  // ----------------------------------------------------
+  // STAIRS & CIRCULATION
+  // ----------------------------------------------------
+  {
+    id: 'staircase_straight',
+    name: 'Straight Staircase',
+    category: 'stairs',
+    defaultWidthMm: 1000,
+    defaultHeightMm: 3000,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 3000" width="1000" height="3000">
+  <rect x="10" y="10" width="980" height="2980" rx="8" ry="8" fill="#f8fafc" stroke="#334155" stroke-width="16" />
+  <line x1="10" y1="300" x2="990" y2="300" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="600" x2="990" y2="600" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="900" x2="990" y2="900" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="1200" x2="990" y2="1200" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="1500" x2="990" y2="1500" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="1800" x2="990" y2="1800" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="2100" x2="990" y2="2100" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="2400" x2="990" y2="2400" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="2700" x2="990" y2="2700" stroke="#64748b" stroke-width="12" />
+  <line x1="60" y1="10" x2="60" y2="2990" stroke="#475569" stroke-width="14" />
+  <line x1="940" y1="10" x2="940" y2="2990" stroke="#475569" stroke-width="14" />
+  <circle cx="500" cy="2850" r="30" fill="#2563eb" />
+  <line x1="500" y1="2850" x2="500" y2="220" stroke="#2563eb" stroke-width="14" stroke-dasharray="24,14" />
+  <polygon points="500,100 450,220 550,220" fill="#2563eb" />
+  <text x="500" y="2700" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="96" font-weight="800" fill="#2563eb" text-anchor="middle">UP</text>
+</svg>`,
+  },
+  {
+    id: 'staircase_l_shape',
+    name: 'L-Shape Staircase',
+    category: 'stairs',
+    defaultWidthMm: 2000,
+    defaultHeightMm: 2000,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000" width="2000" height="2000">
+  <path d="M 10 10 L 1990 10 L 1990 990 L 990 990 L 990 1990 L 10 1990 Z" fill="#f8fafc" stroke="#334155" stroke-width="16" />
+  <rect x="10" y="10" width="980" height="980" fill="#f1f5f9" stroke="#64748b" stroke-width="12" />
+  <line x1="10" y1="1250" x2="990" y2="1250" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="1500" x2="990" y2="1500" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="1750" x2="990" y2="1750" stroke="#64748b" stroke-width="10" />
+  <line x1="1250" y1="10" x2="1250" y2="990" stroke="#64748b" stroke-width="10" />
+  <line x1="1500" y1="10" x2="1500" y2="990" stroke="#64748b" stroke-width="10" />
+  <line x1="1750" y1="10" x2="1750" y2="990" stroke="#64748b" stroke-width="10" />
+  <circle cx="500" cy="1880" r="28" fill="#2563eb" />
+  <path d="M 500 1880 L 500 500 L 1850 500" fill="none" stroke="#2563eb" stroke-width="14" stroke-dasharray="24,14" />
+  <polygon points="1930,500 1830,460 1830,540" fill="#2563eb" />
+  <text x="500" y="1750" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="80" font-weight="800" fill="#2563eb" text-anchor="middle">UP</text>
+</svg>`,
+  },
+  {
+    id: 'staircase_u_shape',
+    name: 'U-Shape Switchback',
+    category: 'stairs',
+    defaultWidthMm: 2000,
+    defaultHeightMm: 3000,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 3000" width="2000" height="3000">
+  <rect x="10" y="10" width="1980" height="2980" rx="8" ry="8" fill="#f8fafc" stroke="#334155" stroke-width="16" />
+  <rect x="10" y="10" width="1980" height="1000" fill="#f1f5f9" stroke="#64748b" stroke-width="12" />
+  <rect x="950" y="1000" width="100" height="1990" fill="#cbd5e1" stroke="#334155" stroke-width="14" />
+  <line x1="10" y1="1300" x2="950" y2="1300" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="1600" x2="950" y2="1600" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="1900" x2="950" y2="1900" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="2200" x2="950" y2="2200" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="2500" x2="950" y2="2500" stroke="#64748b" stroke-width="10" />
+  <line x1="10" y1="2800" x2="950" y2="2800" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="1300" x2="1990" y2="1300" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="1600" x2="1990" y2="1600" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="1900" x2="1990" y2="1900" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="2200" x2="1990" y2="2200" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="2500" x2="1990" y2="2500" stroke="#64748b" stroke-width="10" />
+  <line x1="1050" y1="2800" x2="1990" y2="2800" stroke="#64748b" stroke-width="10" />
+  <circle cx="500" cy="2850" r="28" fill="#2563eb" />
+  <path d="M 500 2850 L 500 500 L 1500 500 L 1500 2800" fill="none" stroke="#2563eb" stroke-width="14" stroke-dasharray="24,14" />
+  <polygon points="1500,2920 1460,2820 1540,2820" fill="#2563eb" />
+  <text x="500" y="2700" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="80" font-weight="800" fill="#2563eb" text-anchor="middle">UP</text>
+</svg>`,
+  },
+  {
+    id: 'staircase_spiral',
+    name: 'Spiral Staircase',
+    category: 'stairs',
+    defaultWidthMm: 1600,
+    defaultHeightMm: 1600,
+    svgContent: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1600" width="1600" height="1600">
+  <circle cx="800" cy="800" r="780" fill="#f8fafc" stroke="#334155" stroke-width="16" />
+  <line x1="800" y1="800" x2="1580" y2="800" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="1475" y2="1190" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="1190" y2="1475" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="800" y2="1580" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="410" y2="1475" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="125" y2="1190" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="20" y2="800" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="125" y2="410" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="410" y2="125" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="800" y2="20" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="1190" y2="125" stroke="#64748b" stroke-width="10" />
+  <line x1="800" y1="800" x2="1475" y2="410" stroke="#64748b" stroke-width="10" />
+  <circle cx="800" cy="800" r="140" fill="#334155" stroke="#1e293b" stroke-width="14" />
+  <circle cx="800" cy="1400" r="24" fill="#2563eb" />
+  <path d="M 800 1400 A 600 600 0 1 1 1400 800" fill="none" stroke="#2563eb" stroke-width="12" stroke-dasharray="20,12" />
+  <polygon points="1400,720 1360,820 1440,820" fill="#2563eb" />
+  <text x="800" y="1320" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="70" font-weight="800" fill="#2563eb" text-anchor="middle">UP</text>
+</svg>`,
+  },
 ];
+
+const STORAGE_KEY_CUSTOM_ASSETS = '3rooms_custom_assets';
 
 /**
  * Singleton managing furniture catalog definitions, SVG-to-Canvas Image conversions,
- * and high-performance in-memory texture caching.
+ * custom asset uploads, and high-performance in-memory texture caching.
  */
 export class AssetManager {
   private static instance: AssetManager | null = null;
@@ -268,6 +375,7 @@ export class AssetManager {
 
   constructor() {
     this.registerCatalog(DEFAULT_FURNITURE_CATALOG);
+    this.loadPersistedCustomAssets();
   }
 
   /**
@@ -278,6 +386,124 @@ export class AssetManager {
       AssetManager.instance = new AssetManager();
     }
     return AssetManager.instance;
+  }
+
+  private loadPersistedCustomAssets(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const data = localStorage.getItem(STORAGE_KEY_CUSTOM_ASSETS);
+      if (data) {
+        const customDefs: FurnitureDefinition[] = JSON.parse(data);
+        if (Array.isArray(customDefs)) {
+          for (const def of customDefs) {
+            def.isCustom = true;
+            this.registerDefinition(def);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load custom assets from localStorage:', e);
+    }
+  }
+
+  public saveCustomAssets(): void {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const customDefs = this.getAllDefinitions().filter((d) => d.isCustom);
+      localStorage.setItem(STORAGE_KEY_CUSTOM_ASSETS, JSON.stringify(customDefs));
+    } catch (e) {
+      console.warn('Failed to save custom assets to localStorage:', e);
+    }
+  }
+
+  public registerCustomDefinition(def: FurnitureDefinition): void {
+    def.isCustom = true;
+    this.registerDefinition(def);
+    this.saveCustomAssets();
+    this.notifyAssetLoaded();
+  }
+
+  public removeCustomDefinition(id: string): void {
+    this.definitions.delete(id);
+    this.imageCache.delete(id);
+    this.loadingPromises.delete(id);
+    this.saveCustomAssets();
+    this.notifyAssetLoaded();
+  }
+
+  public notifyAssetLoaded(): void {
+    for (const cb of this.onAssetLoadedCallbacks) {
+      try {
+        cb();
+      } catch (err) {
+        console.error('Error in onAssetLoaded callback:', err);
+      }
+    }
+  }
+
+  /**
+   * Parses an uploaded SVG file, extracting dimensions, viewBox aspect ratio, and a clean suggested name.
+   */
+  public async parseSvgFile(file: File): Promise<{
+    svgContent: string;
+    viewBoxWidth: number;
+    viewBoxHeight: number;
+    suggestedWidthMm: number;
+    suggestedHeightMm: number;
+    suggestedName: string;
+  }> {
+    const rawText = await file.text();
+    const cleanSvg = rawText.trim();
+    if (!cleanSvg.includes('<svg')) {
+      throw new Error('File does not appear to be a valid SVG document.');
+    }
+
+    let vbWidth = 1000;
+    let vbHeight = 1000;
+
+    const vbMatch = cleanSvg.match(/viewBox=["']\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*["']/i);
+    if (vbMatch) {
+      const w = parseFloat(vbMatch[3]);
+      const h = parseFloat(vbMatch[4]);
+      if (w > 0 && h > 0) {
+        vbWidth = w;
+        vbHeight = h;
+      }
+    } else {
+      const wMatch = cleanSvg.match(/width=["']([-\d.]+)["']/i);
+      const hMatch = cleanSvg.match(/height=["']([-\d.]+)["']/i);
+      if (wMatch && hMatch) {
+        const w = parseFloat(wMatch[1]);
+        const h = parseFloat(hMatch[1]);
+        if (w > 0 && h > 0) {
+          vbWidth = w;
+          vbHeight = h;
+        }
+      }
+    }
+
+    const aspect = vbWidth / vbHeight;
+    let suggestedWidthMm = 1200;
+    let suggestedHeightMm = Math.round(1200 / aspect);
+    if (aspect < 0.5) {
+      suggestedHeightMm = 2400;
+      suggestedWidthMm = Math.round(2400 * aspect);
+    } else if (aspect > 2.0) {
+      suggestedWidthMm = 2400;
+      suggestedHeightMm = Math.round(2400 / aspect);
+    }
+
+    const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const suggestedName = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+
+    return {
+      svgContent: cleanSvg,
+      viewBoxWidth: vbWidth,
+      viewBoxHeight: vbHeight,
+      suggestedWidthMm,
+      suggestedHeightMm,
+      suggestedName,
+    };
   }
 
   /**

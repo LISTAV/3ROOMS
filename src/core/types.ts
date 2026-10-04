@@ -74,16 +74,26 @@ export interface RoomFace {
   layerId?: string;
 }
 
+export type AssetCategory =
+  | 'living'
+  | 'bedroom'
+  | 'kitchen'
+  | 'bathroom'
+  | 'doors_windows'
+  | 'stairs'
+  | 'custom';
+
 /**
  * Definition of an architectural symbol or furniture asset.
  */
 export interface FurnitureDefinition {
-  id: string;              // e.g., 'bed_queen', 'sofa_3seater', 'dining_table_round'
+  id: string;              // e.g., 'bed_queen', 'sofa_3seater', 'staircase_straight'
   name: string;            // Display name
-  category: 'living' | 'bedroom' | 'kitchen' | 'bathroom' | 'doors_windows';
+  category: AssetCategory;
   defaultWidthMm: number;  // Real-world width in millimeters
   defaultHeightMm: number; // Real-world height/depth in millimeters
   svgContent: string;      // Raw inline SVG markup
+  isCustom?: boolean;      // True if imported by user
 }
 
 /**
