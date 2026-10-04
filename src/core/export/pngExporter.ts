@@ -13,7 +13,7 @@ import type { UnitSettings } from '../units/unitFormatter.js';
 import { uiStore } from '../store/uiStore.js';
 
 export interface PngExportOptions {
-  scale?: number; // Canvas pixels per millimeter
+  scale?: number; // Target canvas pixels per millimeter (clamped safely by maxDimension)
   maxDimension?: number; // Maximum canvas dimension in pixels (default: 4096 to prevent memory & browser allocation failure)
   paddingMm?: number;
   backgroundColor?: string;
@@ -23,21 +23,84 @@ export interface PngExportOptions {
   includeRooms?: boolean;
   includeFurniture?: boolean;
   includeImages?: boolean;
+  includeTitleBlock?: boolean;
+  projectName?: string;
   unitSettings?: Partial<UnitSettings>;
+}
+
+/**
+ * Draws a clean, subtle architectural title stamp in the bottom-right corner of the canvas.
+ */
+function drawArchitecturalStamp(
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+  projectName: string,
+  unitLabel: string
+): void {
+  ctx.save();
+  // Reset matrix to draw directly in absolute canvas pixel coordinates
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  const margin = Math.round(Math.max(20, Math.min(40, canvasWidth * 0.015)));
+  const cardW = Math.round(Math.max(260, Math.min(380, canvasWidth * 0.15)));
+  const cardH = Math.round(cardW * 0.22);
+  const x = canvasWidth - cardW - margin;
+  const y = canvasHeight - cardH - margin;
+
+  // Background card
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+  ctx.strokeStyle = '#cbd5e1'; // slate-300
+  ctx.lineWidth = 1.5;
+
+  ctx.beginPath();
+  if ('roundRect' in ctx && typeof (ctx as any).roundRect === 'function') {
+    (ctx as any).roundRect(x, y, cardW, cardH, 6);
+  } else {
+    ctx.rect(x, y, cardW, cardH);
+  }
+  ctx.fill();
+  ctx.stroke();
+
+  // Left accent bar (blueprint blue)
+  ctx.fillStyle = '#2563eb';
+  ctx.fillRect(x, y, 4, cardH);
+
+  // Title text
+  const titleSize = Math.round(cardH * 0.28);
+  const subtitleSize = Math.round(cardH * 0.21);
+
+  ctx.font = `600 ${titleSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#0f172a'; // slate-900
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  const cleanName = projectName.replace(/\.(floorplan|json)$/i, '') || 'Floor Plan';
+  // Truncate if too long
+  const maxTitleChars = 24;
+  const displayTitle = cleanName.length > maxTitleChars ? `${cleanName.substring(0, maxTitleChars)}...` : cleanName;
+  ctx.fillText(displayTitle, x + 16, y + Math.round(cardH * 0.18));
+
+  // Metadata subtitle
+  ctx.font = `500 ${subtitleSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.fillStyle = '#64748b'; // slate-500
+  ctx.fillText(`Units: ${unitLabel} • Architectural CAD`, x + 16, y + Math.round(cardH * 0.54));
+
+  ctx.restore();
 }
 
 /**
  * Renders the floor plan to an offscreen canvas and returns the canvas instance.
  * Automatically clamps dimensions to safe browser limits (max 4096px by default)
- * so canvas allocation and toBlob never fail.
+ * and dynamically scales measurement numbers, badges, and dimension lines so they
+ * are large, bold, and crystal-clear when viewing the exported image.
  */
 export function renderToOffscreenCanvas(
   state: FloorPlanState,
   options: PngExportOptions = {}
 ): HTMLCanvasElement | OffscreenCanvas {
-  const reqScale = options.scale ?? 1.0;
+  const reqScale = options.scale ?? 1.5;
   const maxDim = options.maxDimension ?? 4096;
-  const paddingMm = options.paddingMm ?? 500;
   const bgColor = options.backgroundColor ?? '#ffffff';
   const includeDimensions = options.includeDimensions ?? true;
   const includeCornerAngles = options.includeCornerAngles ?? true;
@@ -45,16 +108,32 @@ export function renderToOffscreenCanvas(
   const includeRooms = options.includeRooms ?? true;
   const includeFurniture = options.includeFurniture ?? true;
   const includeImages = options.includeImages ?? true;
+  const includeTitleBlock = options.includeTitleBlock ?? true;
+  const projectName = options.projectName ?? 'Floor Plan';
   const unitSettings = options.unitSettings || uiStore.getState().unitSettings;
 
-  const bbox = calculateProjectBounds(state, paddingMm);
-
-  // Calculate safe effective scale so canvas size doesn't exceed browser limits
-  const rawWidth = bbox.width * reqScale;
-  const rawHeight = bbox.height * reqScale;
+  // 1. Initial preliminary bounding box to determine required scale
+  const rawBbox = calculateProjectBounds(state, 600);
+  const rawWidth = rawBbox.width * reqScale;
+  const rawHeight = rawBbox.height * reqScale;
   const clampRatio = Math.min(1.0, maxDim / Math.max(rawWidth, rawHeight, 1));
   const scale = Math.max(0.001, reqScale * clampRatio);
 
+  // 2. High-Clarity Annotation Sizing
+  // On a 2000px-4096px canvas, standard 12px text is a microscopic speck.
+  // We compute an optimal font size (32px to 48px in final output pixels)
+  // so measurement numbers are bold, large, and instantly readable.
+  const estimatedMaxCanvasDim = Math.max(rawBbox.width * scale, rawBbox.height * scale);
+  const targetDimFontSizePx = Math.max(34, Math.min(64, Math.round(estimatedMaxCanvasDim / 55)));
+  const dimScaleMultiplier = Math.max(2.5, targetDimFontSizePx / 12);
+  const annotationZoom = scale / dimScaleMultiplier;
+
+  // Dimension line clearance: ensure dimensions sit comfortably outside the walls
+  const dimOffsetMm = Math.max(650, Math.round(42 / annotationZoom));
+  const safePaddingMm = Math.max(options.paddingMm ?? 800, dimOffsetMm + 500);
+
+  // 3. Final Bounding Box & Canvas Dimensions
+  const bbox = calculateProjectBounds(state, safePaddingMm);
   const canvasWidth = Math.max(100, Math.min(maxDim, Math.ceil(bbox.width * scale)));
   const canvasHeight = Math.max(100, Math.min(maxDim, Math.ceil(bbox.height * scale)));
 
@@ -74,16 +153,16 @@ export function renderToOffscreenCanvas(
     throw new Error('Failed to acquire 2D rendering context for PNG export.');
   }
 
-  // 1. Fill background
+  // Fill background
   ctx.save();
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-  // 2. Set scaling transform to world millimeters
+  // Set scaling transform to world millimeters
   ctx.scale(scale, scale);
   ctx.translate(-bbox.minX, -bbox.minY);
 
-  // 3. Render Pipeline (Images -> Rooms -> Furniture -> Walls -> Openings -> Corner Angles -> Dimensions -> Lines)
+  // 4. Render Pipeline (Images -> Rooms -> Furniture -> Walls -> Openings -> Corner Angles -> Dimensions -> Lines)
   const imageLayer = new ImageLayer();
   const roomRenderer = new RoomRenderer();
   const furnitureLayer = new FurnitureLayer();
@@ -101,14 +180,15 @@ export function renderToOffscreenCanvas(
     );
   }
 
-  // (a) Rooms
+  // (a) Rooms (Room fills and scaled area badges formatted in active unit)
   if (includeRooms && Object.keys(state.rooms || {}).length > 0) {
     roomRenderer.render(
       ctx as unknown as CanvasRenderingContext2D,
       state.rooms,
       state.vertices,
       null,
-      scale
+      annotationZoom,
+      unitSettings
     );
   }
 
@@ -122,33 +202,35 @@ export function renderToOffscreenCanvas(
     );
   }
 
-  // (c) Walls
+  // (c) Walls (With crisp outer boundary lines)
   const hasOpenings = Object.keys(state.openings || {}).length > 0;
   const wallPolygons = hasOpenings
     ? generateWallPolygonsWithOpenings(state.vertices, state.walls, state.openings)
     : generateWallPolygons(state.vertices, state.walls);
 
+  const wallStrokeZoom = scale / Math.min(2.0, dimScaleMultiplier);
   wallRenderer.render(
     ctx as unknown as CanvasRenderingContext2D,
     wallPolygons,
     [],
-    scale,
+    wallStrokeZoom,
     { vertices: state.vertices, walls: state.walls, openings: state.openings }
   );
 
-  // (d) Openings
+  // (d) Openings (Doors & Windows with clean architectural line weight)
   if (hasOpenings) {
+    const openingZoom = scale / Math.min(1.8, dimScaleMultiplier);
     openingRenderer.render(
       ctx as unknown as CanvasRenderingContext2D,
       state.openings,
       state.walls,
       state.vertices,
       [],
-      scale
+      openingZoom
     );
   }
 
-  // (e) CAD Corner Angle References
+  // (e) CAD Corner Angle References (Perpendicular 90° square & degree badges)
   if (includeCornerAngles && Object.keys(state.walls || {}).length > 0) {
     const vertexToWalls = new Map<string, string[]>();
     for (const wall of Object.values(state.walls)) {
@@ -176,13 +258,13 @@ export function renderToOffscreenCanvas(
         p1,
         corner,
         p2,
-        scale,
+        annotationZoom,
         true
       );
     }
   }
 
-  // (f) Dimensions
+  // (f) Dimensions (Bold, high-contrast, perfectly legible measurement numbers)
   if (includeDimensions && Object.keys(state.walls || {}).length > 0) {
     for (const wall of Object.values(state.walls)) {
       const startV = state.vertices[wall.startId];
@@ -193,25 +275,32 @@ export function renderToOffscreenCanvas(
         ctx as unknown as CanvasRenderingContext2D,
         startV,
         endV,
-        350,
-        scale,
+        dimOffsetMm,
+        annotationZoom,
         unitSettings
       );
     }
   }
 
-  // (g) Drafting Lines
+  // (g) Drafting Lines (With prominent stroke, arrowheads & clear measurement badges)
   if (includeLines && state.lines && Object.keys(state.lines).length > 0) {
     lineLayer.render(
       ctx as unknown as CanvasRenderingContext2D,
       state.lines,
-      scale,
+      annotationZoom,
       null,
       unitSettings
     );
   }
 
   ctx.restore();
+
+  // (h) Subtle Architectural Title Block Stamp
+  if (includeTitleBlock) {
+    const unitLabel = unitSettings.lengthUnit?.toUpperCase() || 'MM';
+    drawArchitecturalStamp(ctx, canvasWidth, canvasHeight, projectName, unitLabel);
+  }
+
   return canvas;
 }
 
@@ -231,7 +320,7 @@ function dataUrlToBlob(dataUrl: string): Blob {
 }
 
 /**
- * Exports the floor plan as a high-resolution PNG Blob with fail-safe fallbacks.
+ * Exports the floor plan as a high-resolution, print-ready PNG Blob with fail-safe fallbacks.
  */
 export async function exportToPngBlob(
   state: FloorPlanState,

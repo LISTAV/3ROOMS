@@ -145,7 +145,7 @@ export function drawDimension(
   const label = formatDimension(geom.length, unitSettings);
   const { angle: textAngle } = normalizeTextAngle(baselineAngle);
 
-  ctx.font = `${Math.round(12 * screenPixel)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  ctx.font = `600 ${Math.round(12 * screenPixel)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
   const textMetrics = ctx.measureText(label);
   const textWidth = textMetrics.width || label.length * 7 * screenPixel;
   const textHeight = 14 * screenPixel;

@@ -510,4 +510,65 @@ describe('High-Resolution PNG Exporter (src/core/export/pngExporter.ts)', () => 
       expect(canvas.height).toBeLessThanOrEqual(4096);
     }
   });
+
+  it('renders PNG with rooms, drafting lines, architectural title block, and readable annotations', () => {
+    const vertices: Record<string, Vertex> = {
+      v1: { id: 'v1', x: 0, y: 0 },
+      v2: { id: 'v2', x: 5000, y: 0 },
+      v3: { id: 'v3', x: 5000, y: 4000 },
+      v4: { id: 'v4', x: 0, y: 4000 },
+    };
+    const walls: Record<string, Wall> = {
+      w1: { id: 'w1', startId: 'v1', endId: 'v2', thickness: 200 },
+      w2: { id: 'w2', startId: 'v2', endId: 'v3', thickness: 200 },
+      w3: { id: 'w3', startId: 'v3', endId: 'v4', thickness: 200 },
+      w4: { id: 'w4', startId: 'v4', endId: 'v1', thickness: 200 },
+    };
+    const rooms = {
+      r1: {
+        id: 'r1',
+        name: 'Master Bedroom',
+        color: 'rgba(240, 248, 255, 0.8)',
+        vertexIds: ['v1', 'v2', 'v3', 'v4'],
+        wallIds: ['w1', 'w2', 'w3', 'w4'],
+        areaMm2: 20000000,
+        centroid: { x: 2500, y: 2000 },
+      },
+    };
+    const lines = {
+      l1: {
+        id: 'l1',
+        start: { x: 500, y: 500 },
+        end: { x: 3500, y: 500 },
+        thickness: 25,
+        color: '#2563eb',
+        style: 'solid' as const,
+        arrows: 'both' as const,
+        showMeasurement: true,
+        layerId: 'default',
+      },
+    };
+
+    const state: FloorPlanState = {
+      vertices,
+      walls,
+      openings: {},
+      rooms,
+      furniture: {},
+      lines,
+      selectedFurnitureId: null,
+    };
+
+    if (typeof OffscreenCanvas !== 'undefined' || typeof document !== 'undefined') {
+      const canvas = renderToOffscreenCanvas(state, {
+        scale: 1.5,
+        maxDimension: 4096,
+        includeTitleBlock: true,
+        projectName: 'Luxury Villa.floorplan',
+        unitSettings: { lengthUnit: 'm', areaUnit: 'sq_m', decimalPlaces: 2, fractionPrecision: 16 },
+      });
+      expect(canvas.width).toBeGreaterThan(500);
+      expect(canvas.height).toBeGreaterThan(500);
+    }
+  });
 });

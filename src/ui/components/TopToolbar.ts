@@ -137,20 +137,15 @@ export class TopToolbar {
               ${getIconSvg('ChevronDown', 12)}
             </button>
             <div class="dropdown-menu hidden" id="export-dropdown-menu">
-              <button class="dropdown-item" id="export-svg-btn" title="Export Scalable Vector Graphics">
-                ${getIconSvg('FileCode', 15)}
-                <span>Vector Blueprint</span>
-                <span class="item-desc">.SVG</span>
+              <button class="dropdown-item" id="export-png-btn" title="Export High-Res Architectural Blueprint Image">
+                ${getIconSvg('Image', 15)}
+                <span>Architectural Blueprint</span>
+                <span class="item-desc">.PNG</span>
               </button>
               <button class="dropdown-item" id="export-dxf-btn" title="Export AutoCAD 2000 Drawing">
                 ${getIconSvg('Layers', 15)}
                 <span>AutoCAD CAD</span>
                 <span class="item-desc">.DXF</span>
-              </button>
-              <button class="dropdown-item" id="export-png-btn" title="Export High-Res 300 DPI Image">
-                ${getIconSvg('Image', 15)}
-                <span>High-Res Raster</span>
-                <span class="item-desc">.PNG</span>
               </button>
             </div>
           </div>
@@ -231,19 +226,14 @@ export class TopToolbar {
       exportMenu?.classList.toggle('hidden');
     });
 
-    this.element.querySelector('#export-svg-btn')?.addEventListener('click', () => {
+    this.element.querySelector('#export-png-btn')?.addEventListener('click', () => {
       exportMenu?.classList.add('hidden');
-      fileManager.exportSvg();
+      fileManager.exportPng();
     });
 
     this.element.querySelector('#export-dxf-btn')?.addEventListener('click', () => {
       exportMenu?.classList.add('hidden');
       fileManager.exportDxf();
-    });
-
-    this.element.querySelector('#export-png-btn')?.addEventListener('click', () => {
-      exportMenu?.classList.add('hidden');
-      fileManager.exportPng();
     });
 
     // Close export dropdown when clicking elsewhere

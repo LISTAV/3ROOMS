@@ -1,5 +1,7 @@
 import type { Vertex, RoomFace, Point2D } from '../../core/types.js';
 import type { DetectedRoom } from '../../core/geometry/roomDetector.js';
+import { formatArea, type UnitSettings } from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 export interface RoomRendererOptions {
   floorFillColor?: string;
@@ -30,12 +32,14 @@ export class RoomRenderer {
     rooms: Record<string, RoomFace | DetectedRoom>,
     vertices: Record<string, Vertex>,
     selectedRoomId: string | null = null,
-    zoom: number
+    zoom: number = 1,
+    unitSettings?: Partial<UnitSettings>
   ): void {
     const roomList = Object.values(rooms);
     if (roomList.length === 0) return;
 
     const screenPixel = 1 / zoom;
+    const resolvedUnitSettings = unitSettings || uiStore.getState().unitSettings;
 
     ctx.save();
 
@@ -74,15 +78,14 @@ export class RoomRenderer {
     }
 
     // -----------------------------------------------------------------
-    // PASS 2: Centered Architectural Badges (Name & Area in m²)
+    // PASS 2: Centered Architectural Badges (Name & Area formatted)
     // -----------------------------------------------------------------
     for (const room of roomList) {
       const centroid = this.getRoomCentroid(room, vertices);
       if (!centroid) continue;
 
-      const areaM2 = (room.areaMm2 / 1000000).toFixed(2);
       const nameText = room.name || 'Room';
-      const areaText = `${areaM2} m²`;
+      const areaText = formatArea(room.areaMm2, resolvedUnitSettings);
 
       this.renderBadge(ctx, centroid, nameText, areaText, screenPixel);
     }

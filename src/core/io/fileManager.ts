@@ -371,7 +371,12 @@ export class FileManager {
     try {
       const state = planStore.getState();
       const unitSettings = uiStore.getState().unitSettings;
-      const blob = await exportToPngBlob(state, { scale: 1.5, maxDimension: 4096, unitSettings });
+      const blob = await exportToPngBlob(state, {
+        scale: 1.5,
+        maxDimension: 4096,
+        unitSettings,
+        projectName: this.projectName,
+      });
       const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
       const filename = `${baseName}.png`;
 

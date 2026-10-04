@@ -208,8 +208,8 @@ export class LineLayer {
     const midX = (line.start.x + line.end.x) / 2;
     const midY = (line.start.y + line.end.y) / 2;
 
-    // Normal offset by 180mm
-    const normalOffset = 180;
+    // Normal offset with dynamic clearance based on screenPixel
+    const normalOffset = Math.max(180, 22 * screenPixel);
     const normX = -dirY;
     const normY = dirX;
 
