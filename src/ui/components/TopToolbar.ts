@@ -3,6 +3,7 @@ import { planStore } from '../../core/store/planStore.js';
 import { fileManager } from '../../core/io/fileManager.js';
 import { importImageFromFile } from '../../core/io/imageLoader.js';
 import { getIconSvg } from '../icons.js';
+import { pdfExportModal } from './PdfExportModal.js';
 
 export class TopToolbar {
   public element: HTMLElement;
@@ -137,6 +138,11 @@ export class TopToolbar {
               ${getIconSvg('ChevronDown', 12)}
             </button>
             <div class="dropdown-menu hidden" id="export-dropdown-menu">
+              <button class="dropdown-item" id="export-pdf-btn" title="Export Architectural PDF Sheet (Print-Ready ISO/ANSI)">
+                ${getIconSvg('FileText', 15)}
+                <span>Architectural Sheet</span>
+                <span class="item-desc">.PDF</span>
+              </button>
               <button class="dropdown-item" id="export-png-btn" title="Export High-Res Architectural Blueprint Image">
                 ${getIconSvg('Image', 15)}
                 <span>Architectural Blueprint</span>
@@ -224,6 +230,11 @@ export class TopToolbar {
     exportBtn?.addEventListener('click', (e) => {
       e.stopPropagation();
       exportMenu?.classList.toggle('hidden');
+    });
+
+    this.element.querySelector('#export-pdf-btn')?.addEventListener('click', () => {
+      exportMenu?.classList.add('hidden');
+      pdfExportModal.open();
     });
 
     this.element.querySelector('#export-png-btn')?.addEventListener('click', () => {

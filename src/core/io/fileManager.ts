@@ -4,6 +4,7 @@ import { serializeProject, deserializeProject } from './schema.js';
 import { exportToSvg } from '../export/svgExporter.js';
 import { exportToDxf } from '../export/dxfExporter.js';
 import { exportToPngBlob } from '../export/pngExporter.js';
+import { exportToPdfBlob, type PdfExportOptions } from '../export/pdfExporter.js';
 
 export function isTauriEnvironment(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -70,6 +71,10 @@ export class FileManager {
         console.warn('Could not update native Tauri window title:', err);
       }
     }
+  }
+
+  public getProjectName(): string {
+    return this.projectName;
   }
 
   /**
@@ -397,7 +402,58 @@ export class FileManager {
         triggerBrowserDownload(blob, filename);
       }
     } catch (err: any) {
-      alert(`Failed to export PNG: ${err.message || String(err)}`);
+      const msg = `Failed to export PNG: ${err.message || String(err)}`;
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(msg);
+      } else {
+        console.error(msg);
+      }
+    }
+  }
+
+  /**
+   * Export print-ready architectural PDF sheet with standard paper sizing.
+   */
+  public async exportPdf(options: PdfExportOptions = {}): Promise<Blob | null> {
+    try {
+      const state = planStore.getState();
+      const unitSettings = uiStore.getState().unitSettings;
+      const resolvedOptions: PdfExportOptions = {
+        unitSettings,
+        projectName: this.projectName,
+        ...options,
+      };
+
+      const blob = await exportToPdfBlob(state, resolvedOptions);
+      const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
+      const paperName = resolvedOptions.paperSize || 'A3';
+      const filename = `${baseName}_${paperName}.pdf`;
+
+      if (isTauriEnvironment()) {
+        const { save } = await import('@tauri-apps/plugin-dialog');
+        const { writeFile } = await import('@tauri-apps/plugin-fs');
+
+        const selectedPath = await save({
+          defaultPath: filename,
+          filters: [{ name: 'Architectural PDF Document', extensions: ['pdf'] }],
+        });
+
+        if (selectedPath) {
+          const buffer = await blob.arrayBuffer();
+          await writeFile(selectedPath, new Uint8Array(buffer));
+        }
+      } else {
+        triggerBrowserDownload(blob, filename);
+      }
+      return blob;
+    } catch (err: any) {
+      const msg = `Failed to export PDF: ${err.message || String(err)}`;
+      if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+        window.alert(msg);
+      } else {
+        console.error(msg);
+      }
+      return null;
     }
   }
 }

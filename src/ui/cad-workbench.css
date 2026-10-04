@@ -1593,3 +1593,276 @@ body, html {
   border-color: rgba(244, 63, 94, 0.3);
 }
 
+/* ==========================================================================
+   Architectural PDF Export Modal & Live Preview
+   ========================================================================== */
+
+.pdf-export-modal-card {
+  max-width: 920px;
+  width: 95vw;
+  height: 640px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  gap: 16px;
+}
+
+.modal-title-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.modal-subtitle {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  display: block;
+  margin-top: 2px;
+}
+
+.pdf-modal-body {
+  display: flex;
+  gap: 22px;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pdf-settings-column {
+  flex: 0 0 360px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 10px;
+}
+
+.pdf-settings-column::-webkit-scrollbar {
+  width: 5px;
+}
+
+.pdf-settings-column::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.label-hint {
+  font-size: 10.5px;
+  font-weight: normal;
+  text-transform: none;
+  color: #94a3b8;
+}
+
+.form-select,
+.form-input {
+  background: var(--bg-input, #0f172a);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--text-main, #f8fafc);
+  font-size: 12px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.form-select:focus,
+.form-input:focus {
+  border-color: var(--border-accent, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.segmented-control {
+  display: flex;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.segment-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted, #94a3b8);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.segment-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.segment-btn.active {
+  color: #ffffff;
+  background: var(--accent-blue, #2563eb);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-main, #e2e8f0);
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: var(--accent-blue, #2563eb);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.form-row {
+  display: flex;
+  gap: 10px;
+}
+
+.form-col-8 {
+  flex: 2;
+}
+
+.form-col-4 {
+  flex: 1;
+}
+
+.pdf-preview-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.preview-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-main, #f8fafc);
+}
+
+.preview-badge {
+  font-size: 10.5px;
+  background: rgba(37, 99, 235, 0.15);
+  color: #60a5fa;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  font-weight: 500;
+}
+
+.preview-canvas-container {
+  flex: 1;
+  background: #070a13;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  min-height: 240px;
+  overflow: hidden;
+}
+
+#pdf-preview-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.7);
+  border-radius: 2px;
+}
+
+.preview-caption {
+  font-size: 10.5px;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+}
+
+.pdf-modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+  padding-top: 14px;
+  margin-top: 4px;
+}
+
+.pdf-footer-meta {
+  font-size: 11px;
+  font-family: monospace;
+  color: var(--text-secondary, #94a3b8);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.modal-footer-actions {
+  display: flex;
+  gap: 10px;
+}
+
