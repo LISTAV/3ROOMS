@@ -305,7 +305,8 @@ export class FileManager {
    */
   public async exportSvg(): Promise<void> {
     const state = planStore.getState();
-    const svgString = exportToSvg(state);
+    const unitSettings = uiStore.getState().unitSettings;
+    const svgString = exportToSvg(state, { unitSettings });
     const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
     const filename = `${baseName}.svg`;
 
@@ -336,7 +337,8 @@ export class FileManager {
    */
   public async exportDxf(): Promise<void> {
     const state = planStore.getState();
-    const dxfString = exportToDxf(state);
+    const unitSettings = uiStore.getState().unitSettings;
+    const dxfString = exportToDxf(state, { unitSettings });
     const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
     const filename = `${baseName}.dxf`;
 
@@ -368,7 +370,8 @@ export class FileManager {
   public async exportPng(): Promise<void> {
     try {
       const state = planStore.getState();
-      const blob = await exportToPngBlob(state, { scale: 2.0 });
+      const unitSettings = uiStore.getState().unitSettings;
+      const blob = await exportToPngBlob(state, { scale: 1.5, maxDimension: 4096, unitSettings });
       const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
       const filename = `${baseName}.png`;
 

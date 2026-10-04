@@ -61,13 +61,14 @@ export class LineLayer {
     ctx: CanvasRenderingContext2D,
     lines: Record<string, LineEntity>,
     zoom: number,
-    selectedLineId: string | null = null
+    selectedLineId: string | null = null,
+    unitSettings?: Partial<import('../../core/units/unitFormatter.js').UnitSettings>
   ): void {
     const list = Object.values(lines);
     if (list.length === 0) return;
 
     const screenPixel = 1 / zoom;
-    const unitSettings = uiStore.getState().unitSettings;
+    const activeUnitSettings = unitSettings || uiStore.getState().unitSettings;
 
     for (const line of list) {
       const isSelected = selectedLineId === line.id;
@@ -122,7 +123,7 @@ export class LineLayer {
           dirX,
           dirY,
           screenPixel,
-          unitSettings
+          activeUnitSettings
         );
       }
 

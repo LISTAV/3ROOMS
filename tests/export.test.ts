@@ -274,6 +274,66 @@ describe('Vector SVG Exporter (src/core/export/svgExporter.ts)', () => {
     expect(svg).toContain('class="door-arc"');
     expect(svg).toContain('class="opening-jamb"');
   });
+
+  it('renders drafting lines with measurement units and corner angles in SVG', () => {
+    const vertices: Record<string, Vertex> = {
+      v1: { id: 'v1', x: 0, y: 0 },
+      v2: { id: 'v2', x: 4000, y: 0 },
+      v3: { id: 'v3', x: 4000, y: 3000 },
+    };
+    const walls: Record<string, Wall> = {
+      w1: { id: 'w1', startId: 'v1', endId: 'v2', thickness: 200 },
+      w2: { id: 'w2', startId: 'v2', endId: 'v3', thickness: 200 },
+    };
+    const lines = {
+      line1: {
+        id: 'line1',
+        start: { x: 500, y: 500 },
+        end: { x: 2500, y: 500 },
+        thickness: 25,
+        color: '#dc2626',
+        style: 'dashed' as const,
+        arrows: 'both' as const,
+        showMeasurement: true,
+        layerId: 'default',
+      },
+    };
+
+    const state: FloorPlanState = {
+      vertices,
+      walls,
+      openings: {},
+      rooms: {},
+      furniture: {},
+      lines,
+      selectedFurnitureId: null,
+    };
+
+    const svg = exportToSvg(state, {
+      includeLines: true,
+      includeCornerAngles: true,
+      unitSettings: {
+        lengthUnit: 'cm',
+        areaUnit: 'sq_cm',
+        decimalPlaces: 1,
+        fractionPrecision: 16,
+      },
+    });
+
+    // Drafting lines group and elements
+    expect(svg).toContain('<g id="lines">');
+    expect(svg).toContain('stroke="#dc2626"');
+    expect(svg).toContain('class="line-arrowhead"');
+    expect(svg).toContain('class="line-measurement"');
+    expect(svg).toContain('200.0 cm'); // 2000mm in cm
+
+    // Wall dimensions in cm
+    expect(svg).toContain('400.0 cm'); // 4000mm in cm
+
+    // Corner angles group
+    expect(svg).toContain('<g id="corner-angles">');
+    expect(svg).toContain('90.0°');
+  });
 });
 
 describe('AutoCAD DXF Exporter (src/core/export/dxfExporter.ts)', () => {
@@ -356,6 +416,44 @@ describe('AutoCAD DXF Exporter (src/core/export/dxfExporter.ts)', () => {
     expect(dxf).toContain('8\nDOORS');
     expect(dxf).toContain('40\n900'); // Radius 900mm
   });
+
+  it('exports drafting lines and measurements in DXF LINES layer', () => {
+    const vertices: Record<string, Vertex> = {
+      v1: { id: 'v1', x: 0, y: 0 },
+      v2: { id: 'v2', x: 2000, y: 0 },
+    };
+    const walls: Record<string, Wall> = {
+      w1: { id: 'w1', startId: 'v1', endId: 'v2', thickness: 200 },
+    };
+    const lines = {
+      line1: {
+        id: 'line1',
+        start: { x: 100, y: 100 },
+        end: { x: 1500, y: 100 },
+        thickness: 20,
+        color: '#3b82f6',
+        style: 'solid' as const,
+        arrows: 'none' as const,
+        showMeasurement: true,
+        layerId: 'default',
+      },
+    };
+
+    const state: FloorPlanState = {
+      vertices,
+      walls,
+      openings: {},
+      rooms: {},
+      furniture: {},
+      lines,
+      selectedFurnitureId: null,
+    };
+
+    const dxf = exportToDxf(state);
+    expect(dxf).toContain('2\nLINES');
+    expect(dxf).toContain('8\nLINES');
+    expect(dxf).toContain('1\n1,400 mm');
+  });
 });
 
 describe('High-Resolution PNG Exporter (src/core/export/pngExporter.ts)', () => {
@@ -383,6 +481,33 @@ describe('High-Resolution PNG Exporter (src/core/export/pngExporter.ts)', () => 
       expect(canvas).toBeDefined();
       expect(canvas.width).toBeGreaterThan(0);
       expect(canvas.height).toBeGreaterThan(0);
+    }
+  });
+
+  it('clamps huge floorplan canvas dimensions to maxDimension (e.g. 4096px)', () => {
+    const vertices: Record<string, Vertex> = {
+      v1: { id: 'v1', x: 0, y: 0 },
+      v2: { id: 'v2', x: 25000, y: 0 }, // 25 meters wide
+      v3: { id: 'v3', x: 25000, y: 15000 },
+    };
+    const walls: Record<string, Wall> = {
+      w1: { id: 'w1', startId: 'v1', endId: 'v2', thickness: 200 },
+      w2: { id: 'w2', startId: 'v2', endId: 'v3', thickness: 200 },
+    };
+
+    const state: FloorPlanState = {
+      vertices,
+      walls,
+      openings: {},
+      rooms: {},
+      furniture: {},
+      selectedFurnitureId: null,
+    };
+
+    if (typeof OffscreenCanvas !== 'undefined' || typeof document !== 'undefined') {
+      const canvas = renderToOffscreenCanvas(state, { scale: 2.0, maxDimension: 4096 });
+      expect(canvas.width).toBeLessThanOrEqual(4096);
+      expect(canvas.height).toBeLessThanOrEqual(4096);
     }
   });
 });

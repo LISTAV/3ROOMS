@@ -9,6 +9,8 @@ export interface DxfExportOptions {
   includeDimensions?: boolean;
   includeFurniture?: boolean;
   includeRooms?: boolean;
+  includeLines?: boolean;
+  unitSettings?: Partial<import('../units/unitFormatter.js').UnitSettings>;
 }
 
 class DxfWriter {
@@ -115,6 +117,8 @@ export function exportToDxf(state: FloorPlanState, options: DxfExportOptions = {
   const includeDimensions = options.includeDimensions ?? true;
   const includeFurniture = options.includeFurniture ?? true;
   const includeRooms = options.includeRooms ?? true;
+  const includeLines = options.includeLines ?? true;
+  const unitSettings = options.unitSettings;
 
   const w = new DxfWriter();
 
@@ -159,10 +163,10 @@ export function exportToDxf(state: FloorPlanState, options: DxfExportOptions = {
   w.write(49, -5.0);
   w.write(0, 'ENDTAB');
 
-  // LAYER Table: WALLS, DOORS, WINDOWS, ROOMS, DIMENSIONS, FURNITURE
+  // LAYER Table: WALLS, DOORS, WINDOWS, ROOMS, DIMENSIONS, FURNITURE, LINES
   w.write(0, 'TABLE');
   w.write(2, 'LAYER');
-  w.write(70, 6);
+  w.write(70, 7);
 
   const layers: Array<{ name: string; color: number }> = [
     { name: 'WALLS', color: 7 },       // 7 = White/Black
@@ -171,6 +175,7 @@ export function exportToDxf(state: FloorPlanState, options: DxfExportOptions = {
     { name: 'ROOMS', color: 8 },       // 8 = Dark Gray
     { name: 'DIMENSIONS', color: 3 },  // 3 = Green
     { name: 'FURNITURE', color: 6 },   // 6 = Magenta
+    { name: 'LINES', color: 5 },       // 5 = Blue
   ];
 
   for (const layer of layers) {
@@ -422,11 +427,31 @@ export function exportToDxf(state: FloorPlanState, options: DxfExportOptions = {
         x: (dimStart.x + dimEnd.x) / 2,
         y: (dimStart.y + dimEnd.y) / 2,
       };
-      const label = formatDimension(geom.length);
+      const label = formatDimension(geom.length, unitSettings);
       const { angle: textAngle } = normalizeTextAngle(baselineAngle);
       const textDeg = (textAngle * 180) / Math.PI;
 
       w.writeText('DIMENSIONS', mid.x, mid.y, 120, label, textDeg, 1, 2);
+    }
+  }
+
+  // ---------------------------------------------------------
+  // LINES
+  // ---------------------------------------------------------
+  if (includeLines && state.lines && Object.keys(state.lines).length > 0) {
+    for (const line of Object.values(state.lines)) {
+      w.writeLineEntity('LINES', line.start.x, line.start.y, line.end.x, line.end.y);
+
+      if (line.showMeasurement) {
+        const len = Math.hypot(line.end.x - line.start.x, line.end.y - line.start.y);
+        const midX = (line.start.x + line.end.x) / 2;
+        const midY = (line.start.y + line.end.y) / 2;
+        const angle = Math.atan2(line.end.y - line.start.y, line.end.x - line.start.x);
+        const { angle: textAngle } = normalizeTextAngle(angle);
+        const textDeg = (textAngle * 180) / Math.PI;
+
+        w.writeText('LINES', midX, midY, 120, formatDimension(len, unitSettings), textDeg, 1, 2);
+      }
     }
   }
 
