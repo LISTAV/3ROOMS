@@ -258,6 +258,7 @@ body, html {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .catalog-title-row {
@@ -362,11 +363,30 @@ body, html {
 
 .catalog-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.catalog-content::-webkit-scrollbar {
+  width: 5px;
+}
+
+.catalog-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.catalog-content::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 4px;
+}
+
+.catalog-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
 }
 
 .catalog-accordion {
@@ -374,6 +394,7 @@ body, html {
   border-radius: 8px;
   overflow: hidden;
   background: rgba(15, 23, 42, 0.4);
+  flex-shrink: 0;
 }
 
 .accordion-header {
@@ -389,6 +410,7 @@ body, html {
   font-size: 12px;
   font-weight: 600;
   transition: background 0.15s ease;
+  flex-shrink: 0;
 }
 
 .accordion-header:hover {
@@ -420,6 +442,7 @@ body, html {
 
 .accordion-body {
   padding: 6px;
+  overflow: hidden;
 }
 
 .accordion-body.collapsed {
@@ -430,6 +453,7 @@ body, html {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 6px;
+  width: 100%;
 }
 
 .catalog-item-card {
@@ -444,6 +468,7 @@ body, html {
   text-align: center;
   cursor: grab;
   transition: all 0.15s ease;
+  min-width: 0;
 }
 
 .delete-custom-asset-btn {
@@ -533,6 +558,7 @@ body, html {
   text-align: center;
   color: var(--text-dim);
   font-size: 11px;
+  flex-shrink: 0;
 }
 
 /* ==========================================================================
@@ -596,17 +622,33 @@ body, html {
 
 .inspector-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
+.inspector-body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.inspector-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.inspector-body::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 4px;
+}
+
 .property-section {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .section-title {
