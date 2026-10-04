@@ -9,7 +9,8 @@
     "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build": "tsc"
+    "build": "tsc",
+    "tauri": "tauri"
   },
   "keywords": [
     "cad",
@@ -19,6 +20,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.1",
     "@types/node": "^26.6.4",
     "@types/rbush": "^4.0.0",
     "@types/react": "^19.3.0",
@@ -27,6 +29,9 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.12.1",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-fs": "^2.6.0",
     "lucide": "^1.51.0",
     "rbush": "^4.0.1",
     "zustand": "^5.0.15"

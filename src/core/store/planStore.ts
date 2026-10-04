@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla';
-import type { Point2D, Vertex, Wall, Opening, RoomFace, FurnitureInstance } from '../types.js';
+import type { Point2D, Vertex, Wall, Opening, RoomFace, FurnitureInstance, ImageInstance, LineEntity, Layer } from '../types.js';
 import { distance } from '../math/vector.js';
 import { detectRooms } from '../geometry/roomDetector.js';
 import { assetManager } from '../assets/AssetManager.js';
@@ -9,6 +9,54 @@ export function generateId(prefix: string): string {
   return `${prefix}_${Date.now().toString(36)}_${(++idCounter).toString(36)}`;
 }
 
+export const DEFAULT_SEED_LAYERS: Record<string, Layer> = {
+  'layer-rooms': {
+    id: 'layer-rooms',
+    name: 'Rooms & Floors',
+    visible: true,
+    locked: false,
+    opacity: 1.0,
+    colorTag: '#6366f1',
+    order: 0,
+  },
+  'layer-furniture': {
+    id: 'layer-furniture',
+    name: 'Furniture & Symbols',
+    visible: true,
+    locked: false,
+    opacity: 1.0,
+    colorTag: '#ec4899',
+    order: 1,
+  },
+  'layer-walls': {
+    id: 'layer-walls',
+    name: 'Walls & Openings',
+    visible: true,
+    locked: false,
+    opacity: 1.0,
+    colorTag: '#0ea5e9',
+    order: 2,
+  },
+  'layer-dimensions': {
+    id: 'layer-dimensions',
+    name: 'Dimensions & Annotations',
+    visible: true,
+    locked: false,
+    opacity: 1.0,
+    colorTag: '#10b981',
+    order: 3,
+  },
+};
+
+export const DEFAULT_LAYER_ORDER = [
+  'layer-rooms',
+  'layer-furniture',
+  'layer-walls',
+  'layer-dimensions',
+];
+
+export const DEFAULT_ACTIVE_LAYER_ID = 'layer-walls';
+
 export interface PlanStoreState {
   vertices: Record<string, Vertex>;
   walls: Record<string, Wall>;
@@ -16,12 +64,20 @@ export interface PlanStoreState {
   rooms: Record<string, RoomFace>;
   furniture: Record<string, FurnitureInstance>;
   selectedFurnitureId: string | null;
+  images: Record<string, ImageInstance>;
+  selectedImageId: string | null;
+  lines: Record<string, LineEntity>;
+  selectedLineId: string | null;
   selectedIds: string[];
+  // Layer System
+  layers: Record<string, Layer>;
+  activeLayerId: string;
+  layerOrder: string[];
 }
 
 export interface PlanStoreActions {
   getOrCreateVertex: (x: number, y: number, toleranceMm?: number) => Vertex;
-  addWall: (startPoint: Point2D, endPoint: Point2D, thickness?: number) => Wall | null;
+  addWall: (startPoint: Point2D, endPoint: Point2D, thickness?: number, layerId?: string) => Wall | null;
   updateWallThickness: (wallId: string, thickness: number) => void;
   setWallLength: (wallId: string, newLength: number) => void;
   moveVertex: (vertexId: string, newPosition: Point2D) => void;
@@ -37,14 +93,36 @@ export interface PlanStoreActions {
   addFurniture: (
     defId: string,
     position: Point2D,
-    customDimensions?: { width?: number; height?: number }
+    customDimensions?: { width?: number; height?: number },
+    layerId?: string
   ) => FurnitureInstance;
   updateFurnitureTransform: (
     id: string,
-    updates: Partial<Pick<FurnitureInstance, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex'>>
+    updates: Partial<Pick<FurnitureInstance, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex' | 'layerId' | 'aspectRatioLocked'>>
   ) => void;
   deleteFurniture: (id: string) => void;
   selectFurniture: (id: string | null) => void;
+  // Reference Images with Transparency
+  addImage: (
+    image: Omit<ImageInstance, 'id' | 'zIndex' | 'rotation' | 'opacity' | 'locked' | 'aspectRatio'> & {
+      id?: string;
+      zIndex?: number;
+      rotation?: number;
+      opacity?: number;
+      locked?: boolean;
+      aspectRatio?: number;
+    }
+  ) => ImageInstance;
+  updateImage: (id: string, updates: Partial<Omit<ImageInstance, 'id'>>) => void;
+  deleteImage: (id: string) => void;
+  selectImage: (id: string | null) => void;
+  setImageOpacity: (id: string, opacity: number) => void;
+  toggleImageLock: (id: string) => void;
+  // Parametric Drafting Lines
+  addLine: (line: Omit<LineEntity, 'id' | 'layerId'> & { id?: string; layerId?: string }) => LineEntity;
+  updateLine: (id: string, updates: Partial<Omit<LineEntity, 'id'>>) => void;
+  deleteLine: (id: string) => void;
+  selectLine: (id: string | null) => void;
   deleteElements: (ids: string[]) => void;
   setSelectedIds: (ids: string[]) => void;
   setRoomName: (roomId: string, name: string) => void;
@@ -55,6 +133,17 @@ export interface PlanStoreActions {
   canUndo: () => boolean;
   canRedo: () => boolean;
   clear: () => void;
+  loadProject: (projectState: Partial<PlanStoreState>) => void;
+  // Layer Management Actions
+  createLayer: (nameOrOptions?: string | Partial<Layer>, options?: Partial<Layer>) => Layer;
+  deleteLayer: (layerId: string, reassignToLayerId?: string) => void;
+  updateLayer: (layerId: string, updates: Partial<Layer>) => void;
+  toggleLayerVisibility: (layerId: string) => void;
+  toggleLayerLock: (layerId: string) => void;
+  setLayerOpacity: (layerId: string, opacity: number) => void;
+  setActiveLayer: (layerId: string) => void;
+  reorderLayers: (newOrderOrFromIndex: string[] | number, toIndex?: number) => void;
+  moveSelectedToLayer: (layerId: string) => void;
   getStateSnapshot: () => PlanStoreState;
 }
 
@@ -80,7 +169,14 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
     rooms: initialState?.rooms ?? {},
     furniture: initialState?.furniture ?? {},
     selectedFurnitureId: initialState?.selectedFurnitureId ?? null,
+    images: initialState?.images ?? {},
+    selectedImageId: initialState?.selectedImageId ?? null,
+    lines: initialState?.lines ?? {},
+    selectedLineId: initialState?.selectedLineId ?? null,
     selectedIds: initialState?.selectedIds ?? [],
+    layers: initialState?.layers ?? { ...DEFAULT_SEED_LAYERS },
+    activeLayerId: initialState?.activeLayerId ?? DEFAULT_ACTIVE_LAYER_ID,
+    layerOrder: initialState?.layerOrder ? [...initialState.layerOrder] : [...DEFAULT_LAYER_ORDER],
 
     getOrCreateVertex: (x: number, y: number, toleranceMm: number = 5): Vertex => {
       const state = get();
@@ -110,7 +206,12 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
       return newVertex;
     },
 
-    addWall: (startPoint: Point2D, endPoint: Point2D, thickness: number = 150): Wall | null => {
+    addWall: (
+      startPoint: Point2D,
+      endPoint: Point2D,
+      thickness: number = 150,
+      layerId?: string
+    ): Wall | null => {
       if (distance(startPoint, endPoint) < 1e-3) {
         return null; // Reject zero-length walls
       }
@@ -135,11 +236,13 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
 
       recordHistory(get);
 
+      const currentActiveLayer = state.activeLayerId || 'layer-walls';
       const newWall: Wall = {
         id: generateId('w'),
         startId: startVertex.id,
         endId: endVertex.id,
         thickness,
+        layerId: layerId || currentActiveLayer,
       };
 
       set((s) => ({
@@ -290,6 +393,8 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
 
     addOpening: (openingData: Omit<Opening, 'id'> | Opening): Opening => {
       const id = 'id' in openingData && openingData.id ? openingData.id : generateId('op');
+      const state = get();
+      const currentActiveLayer = state.activeLayerId || 'layer-walls';
       const newOpening: Opening = {
         id,
         wallId: openingData.wallId,
@@ -298,6 +403,7 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         type: openingData.type,
         flipH: openingData.flipH ?? false,
         flipV: openingData.flipV ?? false,
+        layerId: ('layerId' in openingData && openingData.layerId) ? openingData.layerId : currentActiveLayer,
       };
 
       set((s) => ({
@@ -377,7 +483,8 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
     addFurniture: (
       defId: string,
       position: Point2D,
-      customDimensions?: { width?: number; height?: number }
+      customDimensions?: { width?: number; height?: number },
+      layerId?: string
     ): FurnitureInstance => {
       const def = assetManager.getDefinition(defId);
       const width = customDimensions?.width ?? def?.defaultWidthMm ?? 1000;
@@ -385,6 +492,11 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
 
       const state = get();
       const zIndex = Object.keys(state.furniture).length + 1;
+      const targetLayer =
+        layerId ||
+        (state.activeLayerId && state.activeLayerId !== 'layer-walls' && state.activeLayerId !== 'layer-dimensions'
+          ? state.activeLayerId
+          : 'layer-furniture');
 
       const newInstance: FurnitureInstance = {
         id: generateId('furn'),
@@ -395,6 +507,7 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         height,
         rotation: 0,
         zIndex,
+        layerId: targetLayer,
       };
 
       set((s) => ({
@@ -411,7 +524,7 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
 
     updateFurnitureTransform: (
       id: string,
-      updates: Partial<Pick<FurnitureInstance, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex'>>
+      updates: Partial<Pick<FurnitureInstance, 'x' | 'y' | 'width' | 'height' | 'rotation' | 'zIndex' | 'layerId' | 'aspectRatioLocked'>>
     ): void => {
       set((s) => {
         const target = s.furniture[id];
@@ -444,7 +557,209 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
     selectFurniture: (id: string | null): void => {
       set((s) => ({
         selectedFurnitureId: id,
+        selectedImageId: null,
         selectedIds: id ? [id] : s.selectedIds.filter((sel) => !s.furniture[sel]),
+      }));
+    },
+
+    addImage: (
+      image: Omit<ImageInstance, 'id' | 'zIndex' | 'rotation' | 'opacity' | 'locked' | 'aspectRatio'> & {
+        id?: string;
+        zIndex?: number;
+        rotation?: number;
+        opacity?: number;
+        locked?: boolean;
+        aspectRatio?: number;
+      }
+    ): ImageInstance => {
+      recordHistory(get);
+      const state = get();
+      const id = image.id || generateId('img');
+      const zIndex = image.zIndex ?? (Object.keys(state.images).length + 1);
+      const targetLayer =
+        image.layerId ||
+        (state.activeLayerId && state.activeLayerId !== 'layer-dimensions'
+          ? state.activeLayerId
+          : 'layer-rooms');
+
+      const newImage: ImageInstance = {
+        id,
+        src: image.src,
+        name: image.name || 'Reference Image',
+        x: image.x,
+        y: image.y,
+        width: image.width,
+        height: image.height,
+        rotation: image.rotation ?? 0,
+        opacity: Math.max(0, Math.min(1, image.opacity ?? 0.6)), // Default 0.6 opacity for translucent tracing!
+        locked: image.locked ?? false,
+        zIndex,
+        layerId: targetLayer,
+        aspectRatio: image.aspectRatio || (image.width / (image.height || 1)),
+      };
+
+      set((s) => ({
+        images: {
+          ...s.images,
+          [id]: newImage,
+        },
+        selectedImageId: id,
+        selectedFurnitureId: null,
+        selectedIds: [id],
+      }));
+
+      return newImage;
+    },
+
+    updateImage: (id: string, updates: Partial<Omit<ImageInstance, 'id'>>): void => {
+      set((s) => {
+        const target = s.images[id];
+        if (!target) return s;
+        return {
+          images: {
+            ...s.images,
+            [id]: {
+              ...target,
+              ...updates,
+              opacity: updates.opacity !== undefined ? Math.max(0, Math.min(1, updates.opacity)) : target.opacity,
+            },
+          },
+        };
+      });
+    },
+
+    deleteImage: (id: string): void => {
+      recordHistory(get);
+      set((s) => {
+        const next = { ...s.images };
+        delete next[id];
+        return {
+          images: next,
+          selectedImageId: s.selectedImageId === id ? null : s.selectedImageId,
+          selectedIds: s.selectedIds.filter((sel) => sel !== id),
+        };
+      });
+    },
+
+    selectImage: (id: string | null): void => {
+      set((s) => ({
+        selectedImageId: id,
+        selectedFurnitureId: null,
+        selectedIds: id ? [id] : s.selectedIds.filter((sel) => !s.images[sel]),
+      }));
+    },
+
+    setImageOpacity: (id: string, opacity: number): void => {
+      const state = get();
+      if (!state.images[id]) return;
+      recordHistory(get);
+      const clamped = Math.max(0, Math.min(1, opacity));
+      set((s) => {
+        const target = s.images[id];
+        if (!target) return s;
+        return {
+          images: {
+            ...s.images,
+            [id]: {
+              ...target,
+              opacity: clamped,
+            },
+          },
+        };
+      });
+    },
+
+    toggleImageLock: (id: string): void => {
+      const state = get();
+      if (!state.images[id]) return;
+      recordHistory(get);
+      set((s) => {
+        const target = s.images[id];
+        if (!target) return s;
+        return {
+          images: {
+            ...s.images,
+            [id]: {
+              ...target,
+              locked: !target.locked,
+            },
+          },
+        };
+      });
+    },
+
+    addLine: (line: Omit<LineEntity, 'id' | 'layerId'> & { id?: string; layerId?: string }): LineEntity => {
+      recordHistory(get);
+      const state = get();
+      const id = line.id || generateId('line');
+      const targetLayer = line.layerId || state.activeLayerId || 'layer-dimensions';
+
+      const newLine: LineEntity = {
+        id,
+        layerId: targetLayer,
+        start: { ...line.start },
+        end: { ...line.end },
+        thickness: line.thickness ?? 50,
+        color: line.color || '#334155',
+        style: line.style || 'solid',
+        arrows: line.arrows || 'none',
+        showMeasurement: line.showMeasurement ?? true,
+      };
+
+      set((s) => ({
+        lines: {
+          ...s.lines,
+          [id]: newLine,
+        },
+        selectedLineId: id,
+        selectedFurnitureId: null,
+        selectedImageId: null,
+        selectedIds: [id],
+      }));
+
+      return newLine;
+    },
+
+    updateLine: (id: string, updates: Partial<Omit<LineEntity, 'id'>>): void => {
+      const state = get();
+      if (!state.lines[id]) return;
+      recordHistory(get);
+      set((s) => {
+        const target = s.lines[id];
+        if (!target) return s;
+        return {
+          lines: {
+            ...s.lines,
+            [id]: {
+              ...target,
+              ...updates,
+              start: updates.start ? { ...updates.start } : target.start,
+              end: updates.end ? { ...updates.end } : target.end,
+            },
+          },
+        };
+      });
+    },
+
+    deleteLine: (id: string): void => {
+      recordHistory(get);
+      set((s) => {
+        const next = { ...s.lines };
+        delete next[id];
+        return {
+          lines: next,
+          selectedLineId: s.selectedLineId === id ? null : s.selectedLineId,
+          selectedIds: s.selectedIds.filter((sel) => sel !== id),
+        };
+      });
+    },
+
+    selectLine: (id: string | null): void => {
+      set((s) => ({
+        selectedLineId: id,
+        selectedFurnitureId: null,
+        selectedImageId: null,
+        selectedIds: id ? [id] : s.selectedIds.filter((sel) => !s.lines[sel]),
       }));
     },
 
@@ -496,9 +811,33 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
           }
         }
 
+        // 6. Remove specified images
+        const nextImages = { ...s.images };
+        for (const imgId of Object.keys(nextImages)) {
+          if (idSet.has(imgId)) {
+            delete nextImages[imgId];
+          }
+        }
+
+        // 7. Remove specified lines
+        const nextLines = { ...s.lines };
+        for (const lId of Object.keys(nextLines)) {
+          if (idSet.has(lId)) {
+            delete nextLines[lId];
+          }
+        }
+
         const nextSelectedFurnitureId = idSet.has(s.selectedFurnitureId ?? '')
           ? null
           : s.selectedFurnitureId;
+
+        const nextSelectedImageId = idSet.has(s.selectedImageId ?? '')
+          ? null
+          : s.selectedImageId;
+
+        const nextSelectedLineId = idSet.has(s.selectedLineId ?? '')
+          ? null
+          : s.selectedLineId;
 
         return {
           vertices: nextVertices,
@@ -506,6 +845,10 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
           openings: nextOpenings,
           furniture: nextFurniture,
           selectedFurnitureId: nextSelectedFurnitureId,
+          images: nextImages,
+          selectedImageId: nextSelectedImageId,
+          lines: nextLines,
+          selectedLineId: nextSelectedLineId,
           selectedIds: s.selectedIds.filter((id) => !idSet.has(id)),
         };
       });
@@ -595,6 +938,10 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         rooms: previous.rooms,
         furniture: previous.furniture,
         selectedFurnitureId: previous.selectedFurnitureId,
+        images: previous.images ?? {},
+        selectedImageId: previous.selectedImageId ?? null,
+        lines: previous.lines ?? {},
+        selectedLineId: previous.selectedLineId ?? null,
         selectedIds: previous.selectedIds,
       });
 
@@ -614,6 +961,10 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         rooms: next.rooms,
         furniture: next.furniture,
         selectedFurnitureId: next.selectedFurnitureId,
+        images: next.images ?? {},
+        selectedImageId: next.selectedImageId ?? null,
+        lines: next.lines ?? {},
+        selectedLineId: next.selectedLineId ?? null,
         selectedIds: next.selectedIds,
       });
 
@@ -627,7 +978,9 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
     setSelectedIds: (ids: string[]) => {
       const state = get();
       const furnId = ids.find((id) => state.furniture[id]) ?? null;
-      set({ selectedIds: ids, selectedFurnitureId: furnId });
+      const imgId = ids.find((id) => state.images[id]) ?? null;
+      const lineId = ids.find((id) => state.lines[id]) ?? null;
+      set({ selectedIds: ids, selectedFurnitureId: furnId, selectedImageId: imgId, selectedLineId: lineId });
     },
 
     clear: () => {
@@ -639,7 +992,323 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         rooms: {},
         furniture: {},
         selectedFurnitureId: null,
+        images: {},
+        selectedImageId: null,
+        lines: {},
+        selectedLineId: null,
         selectedIds: [],
+        layers: { ...DEFAULT_SEED_LAYERS },
+        activeLayerId: DEFAULT_ACTIVE_LAYER_ID,
+        layerOrder: [...DEFAULT_LAYER_ORDER],
+      });
+    },
+
+    loadProject: (projectState: Partial<PlanStoreState>) => {
+      recordHistory(get);
+      set({
+        vertices: { ...(projectState.vertices ?? {}) },
+        walls: { ...(projectState.walls ?? {}) },
+        openings: { ...(projectState.openings ?? {}) },
+        rooms: { ...(projectState.rooms ?? {}) },
+        furniture: { ...(projectState.furniture ?? {}) },
+        selectedFurnitureId: null,
+        images: { ...(projectState.images ?? {}) },
+        selectedImageId: null,
+        lines: { ...(projectState.lines ?? {}) },
+        selectedLineId: null,
+        selectedIds: [],
+        layers: projectState.layers ? { ...projectState.layers } : { ...DEFAULT_SEED_LAYERS },
+        activeLayerId: projectState.activeLayerId || DEFAULT_ACTIVE_LAYER_ID,
+        layerOrder: projectState.layerOrder ? [...projectState.layerOrder] : [...DEFAULT_LAYER_ORDER],
+      });
+      get().recomputeRooms();
+    },
+
+    createLayer: (nameOrOptions?: string | Partial<Layer>, options?: Partial<Layer>): Layer => {
+      recordHistory(get);
+      const state = get();
+      const id = generateId('layer');
+      const order = state.layerOrder.length;
+
+      let layerName: string | undefined;
+      let layerOpts: Partial<Layer> | undefined;
+
+      if (typeof nameOrOptions === 'object' && nameOrOptions !== null) {
+        layerOpts = nameOrOptions;
+        layerName = layerOpts.name;
+      } else if (typeof nameOrOptions === 'string') {
+        layerName = nameOrOptions;
+        layerOpts = options;
+      } else {
+        layerOpts = options;
+      }
+
+      const newLayer: Layer = {
+        id,
+        name: layerName || `Layer ${order + 1}`,
+        visible: layerOpts?.visible ?? true,
+        locked: layerOpts?.locked ?? false,
+        opacity: layerOpts?.opacity ?? 1.0,
+        colorTag: layerOpts?.colorTag || '#3b82f6',
+        order,
+        ...layerOpts,
+      };
+
+      set((s) => ({
+        layers: {
+          ...s.layers,
+          [id]: newLayer,
+        },
+        layerOrder: [...s.layerOrder, id],
+        activeLayerId: id,
+      }));
+
+      return newLayer;
+    },
+
+    deleteLayer: (layerId: string, reassignToLayerId?: string): void => {
+      const state = get();
+      if (state.layerOrder.length <= 1) {
+        return; // Don't delete the only layer
+      }
+
+      recordHistory(get);
+
+      const targetFallback =
+        reassignToLayerId ||
+        state.layerOrder.find((id) => id !== layerId) ||
+        DEFAULT_ACTIVE_LAYER_ID;
+
+      // Reassign entities on this layer to fallback
+      const updatedWalls = { ...state.walls };
+      for (const w of Object.values(updatedWalls)) {
+        if (w.layerId === layerId) {
+          updatedWalls[w.id] = { ...w, layerId: targetFallback };
+        }
+      }
+
+      const updatedOpenings = { ...state.openings };
+      for (const op of Object.values(updatedOpenings)) {
+        if (op.layerId === layerId) {
+          updatedOpenings[op.id] = { ...op, layerId: targetFallback };
+        }
+      }
+
+      const updatedFurniture = { ...state.furniture };
+      for (const f of Object.values(updatedFurniture)) {
+        if (f.layerId === layerId) {
+          updatedFurniture[f.id] = { ...f, layerId: targetFallback };
+        }
+      }
+
+      const updatedRooms = { ...state.rooms };
+      for (const r of Object.values(updatedRooms)) {
+        if (r.layerId === layerId) {
+          updatedRooms[r.id] = { ...r, layerId: targetFallback };
+        }
+      }
+
+      const updatedImages = { ...state.images };
+      for (const img of Object.values(updatedImages)) {
+        if (img.layerId === layerId) {
+          updatedImages[img.id] = { ...img, layerId: targetFallback };
+        }
+      }
+
+      const updatedLines = { ...state.lines };
+      for (const l of Object.values(updatedLines)) {
+        if (l.layerId === layerId) {
+          updatedLines[l.id] = { ...l, layerId: targetFallback };
+        }
+      }
+
+      const newLayers = { ...state.layers };
+      delete newLayers[layerId];
+      const newLayerOrder = state.layerOrder.filter((id) => id !== layerId);
+
+      const newActive =
+        state.activeLayerId === layerId ? targetFallback : state.activeLayerId;
+
+      set({
+        walls: updatedWalls,
+        openings: updatedOpenings,
+        furniture: updatedFurniture,
+        rooms: updatedRooms,
+        images: updatedImages,
+        lines: updatedLines,
+        layers: newLayers,
+        layerOrder: newLayerOrder,
+        activeLayerId: newActive,
+      });
+    },
+
+    updateLayer: (layerId: string, updates: Partial<Layer>): void => {
+      set((s) => {
+        const target = s.layers[layerId];
+        if (!target) return s;
+        return {
+          layers: {
+            ...s.layers,
+            [layerId]: {
+              ...target,
+              ...updates,
+            },
+          },
+        };
+      });
+    },
+
+    toggleLayerVisibility: (layerId: string): void => {
+      set((s) => {
+        const target = s.layers[layerId];
+        if (!target) return s;
+        return {
+          layers: {
+            ...s.layers,
+            [layerId]: {
+              ...target,
+              visible: !target.visible,
+            },
+          },
+        };
+      });
+    },
+
+    toggleLayerLock: (layerId: string): void => {
+      set((s) => {
+        const target = s.layers[layerId];
+        if (!target) return s;
+        return {
+          layers: {
+            ...s.layers,
+            [layerId]: {
+              ...target,
+              locked: !target.locked,
+            },
+          },
+        };
+      });
+    },
+
+    setLayerOpacity: (layerId: string, opacity: number): void => {
+      const clamped = Math.max(0, Math.min(1, opacity));
+      set((s) => {
+        const target = s.layers[layerId];
+        if (!target) return s;
+        return {
+          layers: {
+            ...s.layers,
+            [layerId]: {
+              ...target,
+              opacity: clamped,
+            },
+          },
+        };
+      });
+    },
+
+    setActiveLayer: (layerId: string): void => {
+      const state = get();
+      if (state.layers[layerId]) {
+        set({ activeLayerId: layerId });
+      }
+    },
+
+    reorderLayers: (newOrderOrFromIndex: string[] | number, toIndex?: number): void => {
+      recordHistory(get);
+      set((s) => {
+        let newLayerOrder: string[];
+        if (Array.isArray(newOrderOrFromIndex)) {
+          newLayerOrder = [...newOrderOrFromIndex];
+        } else if (typeof newOrderOrFromIndex === 'number' && typeof toIndex === 'number') {
+          const from = newOrderOrFromIndex;
+          const to = toIndex;
+          if (from < 0 || from >= s.layerOrder.length || to < 0 || to >= s.layerOrder.length) {
+            return s;
+          }
+          const order = [...s.layerOrder];
+          const [moved] = order.splice(from, 1);
+          order.splice(to, 0, moved);
+          newLayerOrder = order;
+        } else {
+          return s;
+        }
+
+        const updatedLayers = { ...s.layers };
+        newLayerOrder.forEach((id, idx) => {
+          if (updatedLayers[id]) {
+            updatedLayers[id] = { ...updatedLayers[id], order: idx };
+          }
+        });
+        return {
+          layers: updatedLayers,
+          layerOrder: newLayerOrder,
+        };
+      });
+    },
+
+    moveSelectedToLayer: (layerId: string): void => {
+      const state = get();
+      if (!state.layers[layerId] || state.selectedIds.length === 0) return;
+
+      recordHistory(get);
+      const selSet = new Set(state.selectedIds);
+
+      const updatedWalls = { ...state.walls };
+      for (const id of selSet) {
+        if (updatedWalls[id]) {
+          updatedWalls[id] = { ...updatedWalls[id], layerId };
+        }
+      }
+
+      const updatedOpenings = { ...state.openings };
+      for (const id of selSet) {
+        if (updatedOpenings[id]) {
+          updatedOpenings[id] = { ...updatedOpenings[id], layerId };
+        }
+      }
+
+      const updatedFurniture = { ...state.furniture };
+      for (const id of selSet) {
+        if (updatedFurniture[id]) {
+          updatedFurniture[id] = { ...updatedFurniture[id], layerId };
+        }
+      }
+
+      const updatedRooms = { ...state.rooms };
+      for (const id of selSet) {
+        if (updatedRooms[id]) {
+          updatedRooms[id] = { ...updatedRooms[id], layerId };
+        }
+      }
+
+      const updatedImages = { ...state.images };
+      for (const id of selSet) {
+        if (updatedImages[id]) {
+          updatedImages[id] = { ...updatedImages[id], layerId };
+        }
+      }
+      if (state.selectedImageId && updatedImages[state.selectedImageId]) {
+        updatedImages[state.selectedImageId] = { ...updatedImages[state.selectedImageId], layerId };
+      }
+
+      const updatedLines = { ...state.lines };
+      for (const id of selSet) {
+        if (updatedLines[id]) {
+          updatedLines[id] = { ...updatedLines[id], layerId };
+        }
+      }
+      if (state.selectedLineId && updatedLines[state.selectedLineId]) {
+        updatedLines[state.selectedLineId] = { ...updatedLines[state.selectedLineId], layerId };
+      }
+
+      set({
+        walls: updatedWalls,
+        openings: updatedOpenings,
+        furniture: updatedFurniture,
+        rooms: updatedRooms,
+        images: updatedImages,
+        lines: updatedLines,
       });
     },
 
@@ -652,7 +1321,14 @@ export function createPlanStore(initialState?: Partial<PlanStoreState>) {
         rooms: JSON.parse(JSON.stringify(state.rooms)),
         furniture: JSON.parse(JSON.stringify(state.furniture)),
         selectedFurnitureId: state.selectedFurnitureId,
+        images: JSON.parse(JSON.stringify(state.images || {})),
+        selectedImageId: state.selectedImageId,
+        lines: JSON.parse(JSON.stringify(state.lines || {})),
+        selectedLineId: state.selectedLineId,
         selectedIds: [...state.selectedIds],
+        layers: JSON.parse(JSON.stringify(state.layers)),
+        activeLayerId: state.activeLayerId,
+        layerOrder: [...state.layerOrder],
       };
     },
   }));

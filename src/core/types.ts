@@ -23,11 +23,9 @@ export interface Wall {
   startId: string;
   endId: string;
   thickness: number;
+  layerId?: string;
 }
 
-/**
- * Types of openings that can be placed on a wall.
- */
 /**
  * Types of openings that can be placed on a wall.
  */
@@ -52,6 +50,7 @@ export interface Opening {
   type: OpeningType;
   flipH: boolean;
   flipV: boolean;
+  layerId?: string;
 }
 
 /**
@@ -72,6 +71,7 @@ export interface RoomFace {
   areaMm2: number;
   points?: Point2D[];
   centroid?: Point2D;
+  layerId?: string;
 }
 
 /**
@@ -98,6 +98,64 @@ export interface FurnitureInstance {
   height: number;          // mm
   rotation: number;        // Rotation in radians
   zIndex: number;          // Stacking order
+  layerId?: string;
+  aspectRatioLocked?: boolean;
+}
+
+/**
+ * Reference underlay image placed on the floor plan canvas with opacity/transparency support.
+ */
+export interface ImageInstance {
+  id: string;              // Unique instance ID (e.g. "img_12345")
+  src: string;             // Base64 data URL or image URI
+  name?: string;           // Optional file name (e.g. "blueprint.png")
+  x: number;               // Center X in world coordinates (mm)
+  y: number;               // Center Y in world coordinates (mm)
+  width: number;           // Display width in mm
+  height: number;          // Display height in mm
+  rotation: number;        // Rotation in radians
+  opacity: number;         // Opacity / Transparency: 0.0 (fully transparent) to 1.0 (fully opaque)
+  locked: boolean;         // When locked, immune to canvas drag/selection clicks
+  zIndex: number;          // Stacking order
+  layerId?: string;        // Assigned layer ID
+  aspectRatio: number;     // Natural aspect ratio (width / height)
+}
+
+/**
+ * Photoshop/AutoCAD-style Layer definition.
+ */
+export interface Layer {
+  id: string;
+  name: string;             // e.g. "01 - Structural Walls", "02 - Openings", "03 - Furniture", "04 - Dimensions"
+  visible: boolean;         // Eye toggle
+  locked: boolean;          // Padlock toggle (prevents selection and mutation)
+  opacity: number;          // 0.0 to 1.0 (Photoshop-like alpha blending)
+  colorTag?: string;        // Optional color tag for visual identification
+  order: number;            // Stacking index (0 = bottom background, N = top overlay)
+}
+
+/**
+ * Layer collection and active drawing state.
+ */
+export interface LayerState {
+  layers: Record<string, Layer>;
+  activeLayerId: string;    // Elements drawn will be assigned to this layer
+  layerOrder: string[];     // Ordered array of layer IDs [bottomLayerId, ..., topLayerId]
+}
+
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+export type ArrowheadStyle = 'none' | 'start' | 'end' | 'both';
+
+export interface LineEntity {
+  id: string;
+  layerId: string;
+  start: Point2D;          // Canonical world coordinates in mm
+  end: Point2D;            // Canonical world coordinates in mm
+  thickness: number;       // Line width in mm (e.g., 20mm, 50mm, 100mm)
+  color: string;           // Hex color (e.g., '#1e293b')
+  style: LineStyle;        // 'solid' | 'dashed' | 'dotted'
+  arrows: ArrowheadStyle;  // Optional arrowheads for annotations
+  showMeasurement: boolean;// Whether to render the length tag along the line
 }
 
 /**
@@ -110,4 +168,12 @@ export interface FloorPlanState {
   rooms: Record<string, RoomFace>;
   furniture: Record<string, FurnitureInstance>;
   selectedFurnitureId: string | null;
+  images?: Record<string, ImageInstance>;
+  selectedImageId?: string | null;
+  lines?: Record<string, LineEntity>;
+  selectedLineId?: string | null;
+  layers?: Record<string, Layer>;
+  activeLayerId?: string;
+  layerOrder?: string[];
 }
+

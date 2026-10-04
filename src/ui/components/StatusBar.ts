@@ -16,14 +16,17 @@ export class StatusBar {
   private render(): void {
     const ui = uiStore.getState();
 
-    const formattedX = formatLength(ui.cursorWorldPos.x, ui.unitSystem);
-    const formattedY = formatLength(ui.cursorWorldPos.y, ui.unitSystem);
+    const formattedX = formatLength(ui.cursorWorldPos.x, ui.unitSettings);
+    const formattedY = formatLength(ui.cursorWorldPos.y, ui.unitSettings);
     const zoomPct = Math.round(ui.zoom * 100);
 
     const unitLabels: Record<string, string> = {
-      metric_mm: 'MM',
-      metric_m: 'METERS',
-      imperial_ft: 'FT-IN',
+      mm: 'MM',
+      cm: 'CM',
+      m: 'METERS',
+      in: 'INCHES',
+      ft: 'FEET',
+      ft_in: 'FT-IN',
     };
 
     this.element.innerHTML = `
@@ -68,9 +71,9 @@ export class StatusBar {
           <div class="status-divider"></div>
 
           <!-- Unit Selector Badge -->
-          <button class="status-unit-badge" id="status-toggle-unit" title="Click to cycle units (mm -> m -> ft-in)">
+          <button class="status-unit-badge" id="status-toggle-unit" title="Click to cycle units (mm -> cm -> m -> in -> ft -> ft_in)">
             <span class="badge-label">UNIT:</span>
-            <span class="badge-value">${unitLabels[ui.unitSystem] ?? 'MM'}</span>
+            <span class="badge-value">${unitLabels[ui.unitSettings.lengthUnit] ?? ui.unitSettings.lengthUnit.toUpperCase()}</span>
           </button>
         </div>
       </div>
@@ -93,8 +96,8 @@ export class StatusBar {
 
   private subscribeStores(): void {
     this.unsubscribeUI = uiStore.subscribe((state) => {
-      const formattedX = formatLength(state.cursorWorldPos.x, state.unitSystem);
-      const formattedY = formatLength(state.cursorWorldPos.y, state.unitSystem);
+      const formattedX = formatLength(state.cursorWorldPos.x, state.unitSettings);
+      const formattedY = formatLength(state.cursorWorldPos.y, state.unitSettings);
       const zoomPct = Math.round(state.zoom * 100);
 
       const coordsEl = this.element.querySelector('.status-coords .status-text');
@@ -124,11 +127,14 @@ export class StatusBar {
       const unitBadgeVal = this.element.querySelector('.status-unit-badge .badge-value');
       if (unitBadgeVal) {
         const unitLabels: Record<string, string> = {
-          metric_mm: 'MM',
-          metric_m: 'METERS',
-          imperial_ft: 'FT-IN',
+          mm: 'MM',
+          cm: 'CM',
+          m: 'METERS',
+          in: 'INCHES',
+          ft: 'FEET',
+          ft_in: 'FT-IN',
         };
-        unitBadgeVal.textContent = unitLabels[state.unitSystem] ?? 'MM';
+        unitBadgeVal.textContent = unitLabels[state.unitSettings.lengthUnit] ?? state.unitSettings.lengthUnit.toUpperCase();
       }
     });
   }

@@ -1,5 +1,7 @@
 import type { Point2D } from '../../core/types.js';
 import { distance, normalize, normal, scale, add } from '../../core/math/vector.js';
+import { formatLength, type UnitSettings } from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 export interface DimensionLineGeometry {
   dimStart: Point2D;
@@ -9,11 +11,14 @@ export interface DimensionLineGeometry {
 }
 
 /**
- * Formats a millimeter distance into a clean CAD string (e.g. 1500 -> "1,500 mm").
+ * Formats a millimeter distance into a clean CAD string in the active preferred unit.
  */
-export function formatDimension(lengthMm: number): string {
-  const rounded = Math.round(lengthMm);
-  return `${rounded.toLocaleString('en-US')} mm`;
+export function formatDimension(
+  lengthMm: number,
+  unitSettings?: Partial<UnitSettings>
+): string {
+  const settings = unitSettings || uiStore.getState().unitSettings;
+  return formatLength(lengthMm, settings);
 }
 
 /**
@@ -83,7 +88,8 @@ export function drawDimension(
   start: Point2D,
   end: Point2D,
   offsetMm: number = 300,
-  zoom: number
+  zoom: number,
+  unitSettings?: Partial<UnitSettings>
 ): void {
   const geom = computeDimensionLine(start, end, offsetMm);
   if (geom.length < 1e-3) return;
@@ -136,7 +142,7 @@ export function drawDimension(
     y: (dimStart.y + dimEnd.y) / 2,
   };
 
-  const label = formatDimension(geom.length);
+  const label = formatDimension(geom.length, unitSettings);
   const { angle: textAngle } = normalizeTextAngle(baselineAngle);
 
   ctx.font = `${Math.round(12 * screenPixel)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;

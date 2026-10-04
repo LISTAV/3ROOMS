@@ -7,6 +7,8 @@ import { planStore } from '../../core/store/planStore.js';
 import { computeOpeningGeometry, type OpeningGeometry } from '../../core/geometry/openings.js';
 import { OpeningRenderer } from '../renderer/OpeningRenderer.js';
 import { drawDimension } from '../renderer/DimensionRenderer.js';
+import { formatLength } from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 export interface OpeningToolOptions {
   id?: string;
@@ -359,7 +361,9 @@ export class OpeningTool implements Tool {
     const badgePos = add(geom.center, scale(normal(geom.unitVector), wall.thickness / 2 + 50 * screenPixel));
     ctx.save();
     ctx.font = `bold ${Math.round(11 * screenPixel)}px sans-serif`;
-    const label = `${this.openingType === 'window' ? 'Window' : 'Door'} ${this.defaultWidth}mm [F/Space: Flip, V: Side]`;
+    const unitSettings = uiStore.getState().unitSettings;
+    const widthText = formatLength(this.defaultWidth, unitSettings);
+    const label = `${this.openingType === 'window' ? 'Window' : 'Door'} ${widthText} [F/Space: Flip, V: Side]`;
     const textWidth = ctx.measureText(label).width;
     const padX = 8 * screenPixel;
     const padY = 4 * screenPixel;

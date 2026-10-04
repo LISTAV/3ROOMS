@@ -2,7 +2,9 @@ import type { Point2D } from '../../core/types.js';
 import type { SnapResult } from '../../core/snap/SnapEngine.js';
 import { computeParallelOffset } from '../../core/math/line.js';
 import { distance } from '../../core/math/vector.js';
-import { drawDimension } from './DimensionRenderer.js';
+import { drawDimension, normalizeTextAngle } from './DimensionRenderer.js';
+import { formatLength } from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 /**
  * Dynamic overlay renderer handling CAD snap markers, alignment rays,
@@ -138,5 +140,56 @@ export class OverlayRenderer {
 
     // 3. Live CAD dimension annotation offset 300mm outward
     drawDimension(ctx, start, end, 300, zoom);
+
+    // 4. Centered live measurement tape badge in preferred unit
+    if (len > 10) {
+      const midX = (start.x + end.x) / 2;
+      const midY = (start.y + end.y) / 2;
+      const dirX = (end.x - start.x) / len;
+      const dirY = (end.y - start.y) / len;
+      const normX = -dirY;
+      const normY = dirX;
+
+      const badgeDist = Math.max(28 * screenPixel, thickness / 2 + 25 * screenPixel);
+      const badgeX = midX + normX * badgeDist;
+      const badgeY = midY + normY * badgeDist;
+
+      let angle = Math.atan2(dirY, dirX);
+      angle = normalizeTextAngle(angle).angle;
+
+      const unitSettings = uiStore.getState().unitSettings;
+      const lengthText = formatLength(len, unitSettings);
+
+      ctx.save();
+      ctx.translate(badgeX, badgeY);
+      ctx.rotate(angle);
+
+      ctx.font = `600 ${11 * screenPixel}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      const textWidth = ctx.measureText(lengthText).width;
+      const padX = 7 * screenPixel;
+      const padY = 3.5 * screenPixel;
+      const pillW = textWidth + padX * 2;
+      const pillH = 14 * screenPixel + padY * 2;
+      const radius = 4 * screenPixel;
+
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 1 * screenPixel;
+
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(-pillW / 2, -pillH / 2, pillW, pillH, radius);
+      } else {
+        ctx.rect(-pillW / 2, -pillH / 2, pillW, pillH);
+      }
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(lengthText, 0, 0);
+      ctx.restore();
+    }
   }
 }

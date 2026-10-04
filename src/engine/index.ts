@@ -14,3 +14,8 @@ export * from './tools/OpeningTool.js';
 export * from './tools/FurnitureTool.js';
 export * from './tools/SelectTool.js';
 export * from './tools/PanTool.js';
+export * from './layers/DimensionLayer.js';
+export * from './layers/ImageLayer.js';
+export * from './layers/LineLayer.js';
+export * from './tools/LineTool.js';
+export * from './gizmos/TransformGizmo.js';

@@ -13,9 +13,16 @@ import { WallRenderer } from '../renderer/WallRenderer.js';
 import { RoomRenderer } from '../renderer/RoomRenderer.js';
 import { OpeningRenderer } from '../renderer/OpeningRenderer.js';
 import { FurnitureLayer } from '../layers/FurnitureLayer.js';
+import { ImageLayer } from '../layers/ImageLayer.js';
+import { LineLayer } from '../layers/LineLayer.js';
+import { dimensionLayer } from '../layers/DimensionLayer.js';
+import { uiStore } from '../../core/store/uiStore.js';
+import { DEFAULT_LAYER_ORDER, DEFAULT_SEED_LAYERS } from '../../core/store/planStore.js';
 import { assetManager } from '../../core/assets/AssetManager.js';
 import { generateWallPolygons } from '../../core/geometry/miter.js';
 import { generateWallPolygonsWithOpenings } from '../../core/geometry/openings.js';
+import type { Wall, Opening } from '../../core/types.js';
+import { isInputElementActive } from '../input/KeyboardManager.js';
 
 export interface CanvasEngineOptions {
   canvas: HTMLCanvasElement;
@@ -25,6 +32,8 @@ export interface CanvasEngineOptions {
   roomRenderer?: RoomRenderer;
   openingRenderer?: OpeningRenderer;
   furnitureLayer?: FurnitureLayer;
+  imageLayer?: ImageLayer;
+  lineLayer?: LineLayer;
   toolManager?: ToolManager;
   snapEngine?: SnapEngine;
   spatialIndex?: SpatialIndex;
@@ -44,6 +53,8 @@ export class CanvasEngine {
   public readonly roomRenderer: RoomRenderer;
   public readonly openingRenderer: OpeningRenderer;
   public readonly furnitureLayer: FurnitureLayer;
+  public readonly imageLayer: ImageLayer;
+  public readonly lineLayer: LineLayer;
   public readonly toolManager: ToolManager;
   public readonly snapEngine: SnapEngine;
   public readonly spatialIndex: SpatialIndex;
@@ -82,6 +93,8 @@ export class CanvasEngine {
     this.roomRenderer = options.roomRenderer ?? new RoomRenderer();
     this.openingRenderer = options.openingRenderer ?? new OpeningRenderer();
     this.furnitureLayer = options.furnitureLayer ?? new FurnitureLayer();
+    this.imageLayer = options.imageLayer ?? new ImageLayer(() => this.requestRender());
+    this.lineLayer = options.lineLayer ?? new LineLayer();
     this.spatialIndex = options.spatialIndex ?? new SpatialIndex();
     this.snapEngine = options.snapEngine ?? new SnapEngine({ spatialIndex: this.spatialIndex });
     this.toolManager = options.toolManager ?? new ToolManager();
@@ -158,58 +171,144 @@ export class CanvasEngine {
     // 4. Render infinite CAD grid in world coordinates
     this.gridRenderer.render(this.ctx, this.viewport, clientWidth, clientHeight);
 
-    // 5. Render Room Floor Fills & Badges
-    const state = planStore.getState();
-    const selectedRoomId = state.selectedIds.find((id) => state.rooms[id]) ?? null;
-    this.roomRenderer.render(
-      this.ctx,
-      state.rooms,
-      state.vertices,
-      selectedRoomId,
-      this.viewport.zoom
-    );
-
-    // 6. Render Placeholder World Origin Box: 1000x1000mm (1m x 1m)
+    // 5. Render Placeholder World Origin Box: 1000x1000mm (1m x 1m)
     this.renderOriginBox();
 
-    // 6b. Render Furniture & Architectural Symbols Layer
-    this.furnitureLayer.render(
-      this.ctx,
-      state.furniture,
-      this.viewport.zoom,
-      state.selectedFurnitureId
-    );
+    // 6. Photoshop-Style Layer Stack (Render bottom to top)
+    const state = planStore.getState();
+    const layerOrder = state.layerOrder || DEFAULT_LAYER_ORDER;
+    const layers = state.layers || DEFAULT_SEED_LAYERS;
 
-    // 7. Render Committed Walls from PlanStore (sliced by openings)
-    this.renderCommittedWalls();
+    for (const layerId of layerOrder) {
+      const layer = layers[layerId];
+      if (!layer || !layer.visible) continue; // Skip hidden layers
 
-    // 7b. Render Committed Openings from PlanStore (doors, windows, CAD symbols)
-    this.openingRenderer.render(
-      this.ctx,
-      state.openings,
-      state.walls,
-      state.vertices,
-      state.selectedIds,
-      this.viewport.zoom
-    );
+      this.ctx.save();
+      this.ctx.globalAlpha = layer.opacity;
 
-    // 8. Render Active Tool Overlays (live preview, snap markers, guidelines, dimensions)
+      this.renderLayerEntities(layerId);
+
+      this.ctx.restore();
+    }
+
+    // 7. Render Active Tool Overlays (live preview, snap markers, guidelines, dimensions)
     this.toolManager.renderOverlay(this.ctx, this.viewport);
   }
 
   /**
-   * Renders committed walls and joint vertices from the graph store.
+   * Renders all entities assigned to a specific layer.
    */
-  private renderCommittedWalls(): void {
+  private renderLayerEntities(layerId: string): void {
+    const state = planStore.getState();
+    const ui = uiStore.getState();
+    const zoom = this.viewport.zoom;
+    // 0. Reference / Underlay Images belonging to this layer
+    const bottomLayerId = state.layerOrder?.[0] || 'layer-rooms';
+    const imagesOnLayer = Object.values(state.images || {}).filter(
+      (img) => (img.layerId || bottomLayerId) === layerId
+    );
+    if (imagesOnLayer.length > 0) {
+      const imgRecord: Record<string, typeof imagesOnLayer[0]> = {};
+      for (const img of imagesOnLayer) imgRecord[img.id] = img;
+      this.imageLayer.render(
+        this.ctx,
+        imgRecord,
+        zoom,
+        state.selectedImageId
+      );
+    }
+
+    // 1. Rooms belonging to this layer
+    const roomsOnLayer = Object.values(state.rooms).filter(
+      (r) => (r.layerId || 'layer-rooms') === layerId
+    );
+    if (roomsOnLayer.length > 0) {
+      const selectedRoomId = state.selectedIds.find((id) => state.rooms[id]) ?? null;
+      const roomsRecord: Record<string, typeof roomsOnLayer[0]> = {};
+      for (const r of roomsOnLayer) roomsRecord[r.id] = r;
+      this.roomRenderer.render(
+        this.ctx,
+        roomsRecord,
+        state.vertices,
+        selectedRoomId,
+        zoom
+      );
+    }
+
+    // 2. Furniture belonging to this layer
+    const furnOnLayer = Object.values(state.furniture).filter(
+      (f) => (f.layerId || 'layer-furniture') === layerId
+    );
+    if (furnOnLayer.length > 0) {
+      const furnRecord: Record<string, typeof furnOnLayer[0]> = {};
+      for (const f of furnOnLayer) furnRecord[f.id] = f;
+      this.furnitureLayer.render(
+        this.ctx,
+        furnRecord,
+        zoom,
+        state.selectedFurnitureId
+      );
+    }
+
+    // 3. Walls & Openings belonging to this layer
+    const wallsOnLayer = Object.values(state.walls).filter(
+      (w) => (w.layerId || 'layer-walls') === layerId
+    );
+    if (wallsOnLayer.length > 0) {
+      this.renderWallsAndOpeningsForLayer(wallsOnLayer);
+    }
+
+    // 4. Dimensions: If this is the dimensions layer
+    if (layerId === 'layer-dimensions' || layerId.includes('dimension')) {
+      dimensionLayer.render(
+        this.ctx,
+        state.walls,
+        state.vertices,
+        zoom,
+        ui.unitSettings
+      );
+    }
+
+    // 5. Parametric Drafting Lines belonging to this layer
+    const linesOnLayer = Object.values(state.lines || {}).filter(
+      (l) => (l.layerId || 'layer-dimensions') === layerId
+    );
+    if (linesOnLayer.length > 0) {
+      const linesRecord: Record<string, typeof linesOnLayer[0]> = {};
+      for (const l of linesOnLayer) linesRecord[l.id] = l;
+      this.lineLayer.render(
+        this.ctx,
+        linesRecord,
+        zoom,
+        state.selectedLineId
+      );
+    }
+  }
+
+  /**
+   * Renders wall polygons, joint vertices, and openings for a specific layer.
+   */
+  private renderWallsAndOpeningsForLayer(walls: Wall[]): void {
     const state = planStore.getState();
     const zoom = this.viewport.zoom;
     const screenPixel = 1 / zoom;
 
-    // 1. Generate clean mitered polygons for all walls, sliced by openings
+    const wallsRecord: Record<string, Wall> = {};
+    for (const w of walls) wallsRecord[w.id] = w;
+
+    // Filter openings anchored to these walls
+    const openingsOnWalls: Record<string, Opening> = {};
+    for (const op of Object.values(state.openings)) {
+      if (wallsRecord[op.wallId]) {
+        openingsOnWalls[op.id] = op;
+      }
+    }
+
+    // 1. Generate clean mitered polygons for walls on this layer, sliced by openings
     const wallPolygons =
-      Object.keys(state.openings).length > 0
-        ? generateWallPolygonsWithOpenings(state.vertices, state.walls, state.openings)
-        : generateWallPolygons(state.vertices, state.walls);
+      Object.keys(openingsOnWalls).length > 0
+        ? generateWallPolygonsWithOpenings(state.vertices, wallsRecord, openingsOnWalls)
+        : Object.values(generateWallPolygons(state.vertices, wallsRecord));
 
     // 2. Render solid wall bodies, seamless corner miters, and selection highlights
     this.wallRenderer.render(
@@ -217,20 +316,31 @@ export class CanvasEngine {
       wallPolygons,
       state.selectedIds,
       zoom,
-      { vertices: state.vertices, walls: state.walls, openings: state.openings }
+      { vertices: state.vertices, walls: wallsRecord, openings: openingsOnWalls }
     );
 
-    // 3. Render dimension annotations along committed walls
-    for (const wall of Object.values(state.walls)) {
-      const startV = state.vertices[wall.startId];
-      const endV = state.vertices[wall.endId];
-      if (!startV || !endV) continue;
-
-      drawDimension(this.ctx, startV, endV, 350, zoom);
+    // 3. Render openings
+    if (Object.keys(openingsOnWalls).length > 0) {
+      this.openingRenderer.render(
+        this.ctx,
+        openingsOnWalls,
+        wallsRecord,
+        state.vertices,
+        state.selectedIds,
+        zoom
+      );
     }
 
-    // Render joint vertices
-    for (const vertex of Object.values(state.vertices)) {
+    // 4. Render joint vertices
+    const renderedVertexIds = new Set<string>();
+    for (const wall of walls) {
+      renderedVertexIds.add(wall.startId);
+      renderedVertexIds.add(wall.endId);
+    }
+
+    for (const vId of renderedVertexIds) {
+      const vertex = state.vertices[vId];
+      if (!vertex) continue;
       this.ctx.fillStyle = '#0ea5e9'; // sky-500
       this.ctx.strokeStyle = '#0369a1'; // sky-700
       this.ctx.lineWidth = 1 * screenPixel;
@@ -240,8 +350,6 @@ export class CanvasEngine {
       this.ctx.fill();
       this.ctx.stroke();
     }
-
-    this.ctx.restore();
   }
 
   /**
@@ -425,6 +533,10 @@ export class CanvasEngine {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
+    if (isInputElementActive()) {
+      return;
+    }
+
     if (e.code === 'Space' && !this.isSpacePressed) {
       this.isSpacePressed = true;
       if (!this.isPanning) {

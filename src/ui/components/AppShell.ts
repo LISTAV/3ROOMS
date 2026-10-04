@@ -2,15 +2,20 @@ import { TopToolbar } from './TopToolbar.js';
 import { AssetCatalog } from './AssetCatalog.js';
 import { PropertyInspector } from './PropertyInspector.js';
 import { StatusBar } from './StatusBar.js';
+import { LayerPanel } from './LayerPanel.js';
 import { CanvasEngine } from '../../engine/canvas/CanvasEngine.js';
 import { WallTool } from '../../engine/tools/WallTool.js';
 import { OpeningTool } from '../../engine/tools/OpeningTool.js';
 import { FurnitureTool } from '../../engine/tools/FurnitureTool.js';
 import { SelectTool } from '../../engine/tools/SelectTool.js';
 import { PanTool } from '../../engine/tools/PanTool.js';
+import { LineTool } from '../../engine/tools/LineTool.js';
 import { uiStore, type ToolType } from '../../core/store/uiStore.js';
 import { planStore } from '../../core/store/planStore.js';
+import { fileManager } from '../../core/io/fileManager.js';
+import { importImageFromFile } from '../../core/io/imageLoader.js';
 import type { Point2D } from '../../core/types.js';
+import { isInputElementActive } from '../../engine/input/KeyboardManager.js';
 
 export class AppShell {
   public root: HTMLElement;
@@ -19,6 +24,7 @@ export class AppShell {
   public assetCatalog: AssetCatalog;
   public propertyInspector: PropertyInspector;
   public statusBar: StatusBar;
+  public layerPanel: LayerPanel;
 
   // Tools
   public selectTool: SelectTool;
@@ -27,6 +33,7 @@ export class AppShell {
   public doubleDoorTool: OpeningTool;
   public windowTool: OpeningTool;
   public furnitureTool: FurnitureTool;
+  public lineTool: LineTool;
   public panTool: PanTool;
 
   constructor(rootContainer: HTMLElement) {
@@ -38,6 +45,7 @@ export class AppShell {
     this.assetCatalog = new AssetCatalog();
     this.propertyInspector = new PropertyInspector();
     this.statusBar = new StatusBar();
+    this.layerPanel = new LayerPanel();
 
     // 2. Assemble Workspace DOM Structure
     const workspaceLayer = document.createElement('div');
@@ -53,6 +61,7 @@ export class AppShell {
     workspaceLayer.appendChild(this.assetCatalog.element);
     workspaceLayer.appendChild(canvasViewport);
     workspaceLayer.appendChild(this.propertyInspector.element);
+    workspaceLayer.appendChild(this.layerPanel.element);
 
     this.root.innerHTML = '';
     this.root.appendChild(this.topToolbar.element);
@@ -71,6 +80,7 @@ export class AppShell {
     this.doubleDoorTool = new OpeningTool({ id: 'double_door', openingType: 'double_door', defaultWidth: 1500 });
     this.windowTool = new OpeningTool({ id: 'window', openingType: 'window', defaultWidth: 1200 });
     this.furnitureTool = new FurnitureTool();
+    this.lineTool = new LineTool();
     this.panTool = new PanTool();
 
     this.engine.toolManager.registerTool(this.selectTool);
@@ -79,6 +89,7 @@ export class AppShell {
     this.engine.toolManager.registerTool(this.doubleDoorTool);
     this.engine.toolManager.registerTool(this.windowTool);
     this.engine.toolManager.registerTool(this.furnitureTool);
+    this.engine.toolManager.registerTool(this.lineTool);
     this.engine.toolManager.registerTool(this.panTool);
 
     // Set initial tool
@@ -131,6 +142,10 @@ export class AppShell {
       if (state.resetZoomTrigger !== prevState.resetZoomTrigger) {
         this.handleResetZoom();
       }
+
+      if (state.unitSettings !== prevState.unitSettings) {
+        this.engine.requestRender();
+      }
     });
 
     // 2. Sync planStore changes to canvas render
@@ -166,17 +181,35 @@ export class AppShell {
       }
     });
 
-    viewport.addEventListener('drop', (e: DragEvent) => {
+    viewport.addEventListener('drop', async (e: DragEvent) => {
       e.preventDefault();
-      const defId = e.dataTransfer?.getData('text/plain');
-      if (!defId) return;
-
       const rect = canvas.getBoundingClientRect();
       const screenPt: Point2D = {
         x: e.clientX - rect.left,
         y: e.clientY - rect.top,
       };
       const worldPt = this.engine.viewport.screenToWorld(screenPt);
+
+      // 1. Check if dropped item is an image file
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          if (file.type.startsWith('image/')) {
+            try {
+              await importImageFromFile(file, { worldPosition: worldPt });
+              this.engine.requestRender();
+            } catch (err) {
+              console.error('Failed to import dropped image:', err);
+            }
+            return;
+          }
+        }
+      }
+
+      // 2. Check if dropped item is a catalog furniture asset
+      const defId = e.dataTransfer?.getData('text/plain');
+      if (!defId) return;
 
       // Create furniture instance
       const newInst = planStore.getState().addFurniture(defId, worldPt);
@@ -189,7 +222,7 @@ export class AppShell {
   private setupKeyboardShortcuts(): void {
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       // Ignore if user is currently typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+      if (isInputElementActive()) {
         return;
       }
 
@@ -206,14 +239,34 @@ export class AppShell {
         uiStore.getState().setActiveTool('pan');
       } else if (e.code === 'KeyM') {
         uiStore.getState().setActiveTool('furniture');
+      } else if (e.code === 'KeyL' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        uiStore.getState().setActiveTool('line');
       }
 
       // Toggles
       if (e.code === 'KeyG') {
         uiStore.getState().toggleSnapToGrid();
+      } else if (e.shiftKey && e.code === 'KeyL') {
+        uiStore.getState().toggleLayers();
       } else if (e.code === 'F8') {
         uiStore.getState().toggleOrthoLock();
         e.preventDefault();
+      }
+
+      // File Operations
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyN') {
+        e.preventDefault();
+        fileManager.newProject();
+      } else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyO') {
+        e.preventDefault();
+        fileManager.openProject();
+      } else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyS') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          fileManager.saveProjectAs();
+        } else {
+          fileManager.saveProject();
+        }
       }
 
       // History
@@ -311,6 +364,9 @@ export class AppShell {
         break;
       case 'furniture':
         hint = 'Furniture Tool: Click to place symbol. Drag rotation handle to rotate (+Shift for 15° snap).';
+        break;
+      case 'line':
+        hint = 'Line Tool: Click to anchor start point, move to preview (+Shift for 45° angle snap), click to place line.';
         break;
     }
 

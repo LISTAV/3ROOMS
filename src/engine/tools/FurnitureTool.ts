@@ -4,6 +4,8 @@ import type { Tool, ToolContext } from './Tool.js';
 import { planStore } from '../../core/store/planStore.js';
 import { assetManager } from '../../core/assets/AssetManager.js';
 import { distance } from '../../core/math/vector.js';
+import { formatLength } from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 export const STALK_LENGTH_MM = 300;
 
@@ -390,7 +392,10 @@ export class FurnitureTool implements Tool {
       ctx.fillStyle = '#1e40af';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${def?.name ?? this.placingDefId} (${width}×${height}mm)`, 0, 0);
+      const unitSettings = uiStore.getState().unitSettings;
+      const wStr = formatLength(width, unitSettings);
+      const hStr = formatLength(height, unitSettings);
+      ctx.fillText(`${def?.name ?? this.placingDefId} (${wStr} × ${hStr})`, 0, 0);
 
       ctx.restore();
       return;
@@ -466,7 +471,10 @@ export class FurnitureTool implements Tool {
     // 4. Transform HUD Info Badge below item
     const badgeY = halfH + 30 * screenPixel;
     const deg = Math.round((inst.rotation * 180) / Math.PI) % 360;
-    const infoText = `${Math.round(inst.width)} × ${Math.round(inst.height)} mm | ${deg}°`;
+    const unitSettings = uiStore.getState().unitSettings;
+    const wStr = formatLength(inst.width, unitSettings);
+    const hStr = formatLength(inst.height, unitSettings);
+    const infoText = `${wStr} × ${hStr} | ${deg}°`;
 
     ctx.font = `500 ${11 * screenPixel}px sans-serif`;
     const textWidth = ctx.measureText(infoText).width;
