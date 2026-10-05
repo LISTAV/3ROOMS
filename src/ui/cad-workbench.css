@@ -33,7 +33,7 @@
   --font-mono: 'JetBrains Mono', Consolas, SFMono-Regular, Menlo, monospace;
 
   --sidebar-left-width: 270px;
-  --sidebar-right-width: 290px;
+  --sidebar-right-width: 320px;
   --topbar-height: 52px;
   --statusbar-height: 32px;
 }
@@ -568,6 +568,8 @@ body, html {
 .property-inspector-sidebar {
   width: var(--sidebar-right-width);
   height: 100%;
+  flex-shrink: 0;
+  box-sizing: border-box;
   background: var(--bg-panel);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -655,6 +657,7 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -662,16 +665,30 @@ body, html {
   color: var(--text-dim);
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+
+.section-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .badge-accent {
   font-size: 10px;
   font-family: var(--font-mono);
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 4px;
   background: rgba(56, 189, 248, 0.15);
   color: var(--text-accent);
   text-transform: none;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .metric-grid {
@@ -717,6 +734,7 @@ body, html {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 
 .form-group label {
@@ -727,8 +745,9 @@ body, html {
 
 .form-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  width: 100%;
 }
 
 .form-group input[type="text"],
@@ -742,6 +761,9 @@ body, html {
   font-family: var(--font-mono);
   outline: none;
   transition: border-color 0.15s ease;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .form-group input[type="text"]:focus,
@@ -840,14 +862,17 @@ body, html {
 .action-btn-row {
   display: flex;
   gap: 6px;
+  width: 100%;
 }
 
 .action-btn {
   flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   color: var(--text-muted);
   font-size: 11px;
   cursor: pointer;
@@ -856,6 +881,12 @@ body, html {
   justify-content: center;
   gap: 6px;
   transition: all 0.15s ease;
+}
+
+.action-btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .action-btn:hover {
@@ -916,11 +947,15 @@ body, html {
 .rotation-control-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .rotation-control-row input[type="range"] {
   flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .section-divider {

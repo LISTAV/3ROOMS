@@ -3,6 +3,7 @@ import { uiStore, formatLength, formatArea } from '../../core/store/uiStore.js';
 import { getIconSvg } from '../icons.js';
 import { distance } from '../../core/math/vector.js';
 import { parseLengthToMm } from '../../core/units/unitFormatter.js';
+import { assetManager } from '../../core/assets/AssetManager.js';
 import type { OpeningType, UnitSystem, ImageInstance, LineEntity, LineStyle, ArrowheadStyle, FurnitureInstance, Point2D, DimensionPosition } from '../../core/types.js';
 
 export class PropertyInspector {
@@ -423,14 +424,17 @@ export class PropertyInspector {
     const isLocked = !!furn.aspectRatioLocked;
     const widthFormatted = formatLength(furn.width, ui.unitSettings);
     const heightFormatted = formatLength(furn.height, ui.unitSettings);
+    const def = assetManager.getDefinition(furn.defId);
+    const assetTitle = def?.name ?? furn.defId;
 
     return `
       <div class="property-section">
         <div class="section-title">
-          <span>🛋️ Furniture Asset</span>
-          <span class="badge-accent">${furn.defId}</span>
+          <span title="${assetTitle}">🛋️ ${assetTitle}</span>
+          <span class="badge-accent" title="${furn.defId}">${furn.defId}</span>
         </div>
 
+        <!-- Position X & Y -->
         <div class="form-row">
           <div class="form-group">
             <label>Position X (mm)</label>
@@ -442,46 +446,51 @@ export class PropertyInspector {
           </div>
         </div>
 
-        <!-- Dimensions in Active Unit & Aspect Ratio Lock -->
-        <div class="form-row" style="align-items: flex-end; gap: 6px;">
-          <div class="form-group" style="flex: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <label>Width</label>
-              <span style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">${widthFormatted}</span>
-            </div>
-            <input type="text" id="furn-w-input" value="${widthFormatted}" placeholder="e.g. 1800 or 6' 0\"" />
+        <!-- Dimensions & Proportional Aspect Ratio Lock -->
+        <div class="form-group">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+            <label style="font-weight: 600; color: var(--text-main);">Dimensions</label>
+            <button class="preset-pill ${isLocked ? 'active' : ''}" id="furn-aspect-lock-btn" title="${isLocked ? 'Aspect Ratio Locked (Proportional scaling on)' : 'Aspect Ratio Unlocked'}" style="padding: 2px 8px; font-size: 10px; display: inline-flex; align-items: center; gap: 4px;">
+              <span>${isLocked ? '🔒 Locked' : '🔓 Ratio'}</span>
+            </button>
           </div>
-
-          <button class="preset-pill ${isLocked ? 'active' : ''}" id="furn-aspect-lock-btn" title="${isLocked ? 'Unlock Aspect Ratio' : 'Lock Aspect Ratio'}" style="margin-bottom: 2px; height: 32px; padding: 0 10px; display: flex; align-items: center; justify-content: center;">
-            <span>${isLocked ? '🔒 Lock' : '🔓 Ratio'}</span>
-          </button>
-
-          <div class="form-group" style="flex: 1;">
-            <div style="display: flex; justify-content: space-between; align-items: baseline;">
-              <label>Depth</label>
-              <span style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">${heightFormatted}</span>
+          <div class="form-row">
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 2px;">
+                <span>Width</span>
+                <span style="font-family: var(--font-mono);">${widthFormatted}</span>
+              </div>
+              <input type="text" id="furn-w-input" value="${widthFormatted}" placeholder="e.g. 1800 or 6' 0\"" />
             </div>
-            <input type="text" id="furn-h-input" value="${heightFormatted}" placeholder="e.g. 900 or 3' 0\"" />
+            <div class="form-group">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-dim); margin-bottom: 2px;">
+                <span>Depth</span>
+                <span style="font-family: var(--font-mono);">${heightFormatted}</span>
+              </div>
+              <input type="text" id="furn-h-input" value="${heightFormatted}" placeholder="e.g. 900 or 3' 0\"" />
+            </div>
           </div>
         </div>
 
         <!-- Rotation with numeric input & presets -->
-        <div class="form-group" style="margin-top: 10px;">
+        <div class="form-group" style="margin-top: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <label>Rotation</label>
+            <label style="font-weight: 600; color: var(--text-main);">Rotation</label>
             <div style="display: flex; align-items: center; gap: 4px;">
-              <input type="number" id="furn-rot-input" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" style="width: 58px; padding: 2px 4px; text-align: right; font-family: var(--font-mono); font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--text-main);" />
+              <input type="number" id="furn-rot-input" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" style="width: 54px; padding: 2px 4px; text-align: right; font-family: var(--font-mono); font-size: 12px; background: var(--bg-input); border: 1px solid var(--border-subtle); border-radius: 4px; color: var(--text-main);" />
               <span style="font-size: 12px; color: var(--text-dim);">°</span>
             </div>
           </div>
-          <div class="rotation-control-row">
-            <input type="range" id="furn-rot-slider" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" />
+          <input type="range" id="furn-rot-slider" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" style="width: 100%; margin-bottom: 6px; cursor: pointer;" />
+          <div class="preset-pill-group">
+            <button class="preset-pill" id="furn-rot-0" title="Reset Rotation (0°)">0°</button>
             <button class="preset-pill" id="furn-rot-45" title="Rotate +45°">+45°</button>
             <button class="preset-pill" id="furn-rot-90" title="Rotate +90°">+90°</button>
             <button class="preset-pill" id="furn-rot-180" title="Flip 180°">180°</button>
           </div>
         </div>
 
+        <!-- Stacking Order -->
         <div class="form-group">
           <label>Stacking Order (Z-Index: ${furn.zIndex})</label>
           <div class="action-btn-row">
@@ -664,8 +673,8 @@ export class PropertyInspector {
     return `
       <div class="property-section">
         <div class="section-title">
-          <span>🖼️ Reference Image</span>
-          <span class="badge-accent">${img.name || 'Underlay'}</span>
+          <span title="${img.name || 'Reference Image'}">🖼️ ${img.name || 'Reference Image'}</span>
+          <span class="badge-accent" title="${img.id}">${img.id}</span>
         </div>
 
         <!-- Opacity / Transparency Control (PRIMARY USER REQUEST) -->
@@ -728,8 +737,8 @@ export class PropertyInspector {
         <!-- Rotation -->
         <div class="form-group">
           <label>Rotation (${deg}°)</label>
-          <div class="rotation-control-row">
-            <input type="range" id="img-rot-slider" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" />
+          <input type="range" id="img-rot-slider" min="0" max="360" value="${deg < 0 ? deg + 360 : deg}" style="width: 100%; margin-bottom: 6px; cursor: pointer;" />
+          <div class="preset-pill-group">
             <button class="preset-pill" id="img-rot-0" title="Reset Rotation">0°</button>
             <button class="preset-pill" id="img-rot-45" title="Rotate +45°">+45°</button>
             <button class="preset-pill" id="img-rot-90" title="Rotate +90°">+90°</button>
@@ -971,6 +980,10 @@ export class PropertyInspector {
           const rad = (deg * Math.PI) / 180;
           planStore.getState().updateFurnitureTransform(furnId, { rotation: rad });
         }
+      });
+
+      this.element.querySelector('#furn-rot-0')?.addEventListener('click', () => {
+        planStore.getState().updateFurnitureTransform(furnId, { rotation: 0 });
       });
 
       this.element.querySelector('#furn-rot-45')?.addEventListener('click', () => {
