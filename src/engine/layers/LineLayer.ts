@@ -62,13 +62,15 @@ export class LineLayer {
     lines: Record<string, LineEntity>,
     zoom: number,
     selectedLineId: string | null = null,
-    unitSettings?: Partial<import('../../core/units/unitFormatter.js').UnitSettings>
+    unitSettings?: Partial<import('../../core/units/unitFormatter.js').UnitSettings>,
+    dimensionSettings?: import('../../core/units/unitFormatter.js').DimensionSettings
   ): void {
     const list = Object.values(lines);
     if (list.length === 0) return;
 
     const screenPixel = 1 / zoom;
     const activeUnitSettings = unitSettings || uiStore.getState().unitSettings;
+    const activeDimSettings = dimensionSettings || uiStore.getState().dimensionSettings;
 
     for (const line of list) {
       const isSelected = selectedLineId === line.id;
@@ -123,7 +125,8 @@ export class LineLayer {
           dirX,
           dirY,
           screenPixel,
-          activeUnitSettings
+          activeUnitSettings,
+          activeDimSettings
         );
       }
 
@@ -203,13 +206,22 @@ export class LineLayer {
     dirX: number,
     dirY: number,
     screenPixel: number,
-    unitSettings: any
+    unitSettings: any,
+    activeDimSettings?: import('../../core/units/unitFormatter.js').DimensionSettings
   ): void {
+    const dimSettings = activeDimSettings || uiStore.getState().dimensionSettings;
     const midX = (line.start.x + line.end.x) / 2;
     const midY = (line.start.y + line.end.y) / 2;
 
-    // Normal offset with dynamic clearance based on screenPixel
-    const normalOffset = Math.max(180, 22 * screenPixel);
+    // Normal offset with dynamic clearance based on position & offset setting
+    const baseOffset = Math.max(180, 22 * screenPixel) * ((dimSettings?.offsetMm ?? 350) / 350);
+    let normalOffset = baseOffset;
+    if (dimSettings?.position === 'centered') {
+      normalOffset = 0;
+    } else if (dimSettings?.position === 'inside') {
+      normalOffset = -baseOffset;
+    }
+
     const normX = -dirY;
     const normY = dirX;
 
@@ -225,12 +237,14 @@ export class LineLayer {
     ctx.translate(posX, posY);
     ctx.rotate(angle);
 
-    ctx.font = `600 ${11 * screenPixel}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    const baseFont = dimSettings?.fontSize ?? 12;
+    const fontSizePx = Math.max(baseFont * screenPixel, 7 * screenPixel);
+    ctx.font = `600 ${Math.round(fontSizePx)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
     const textWidth = ctx.measureText(lengthText).width;
     const padX = 6 * screenPixel;
     const padY = 3 * screenPixel;
     const pillW = textWidth + padX * 2;
-    const pillH = 14 * screenPixel + padY * 2;
+    const pillH = Math.round((baseFont + 4) * screenPixel + padY * 2);
     const radius = 4 * screenPixel;
 
     // Background pill

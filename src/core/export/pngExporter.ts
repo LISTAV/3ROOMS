@@ -9,7 +9,7 @@ import { LineLayer } from '../../engine/layers/LineLayer.js';
 import { drawDimension, drawCornerAngleIndicator } from '../../engine/renderer/DimensionRenderer.js';
 import { generateWallPolygons } from '../geometry/miter.js';
 import { generateWallPolygonsWithOpenings } from '../geometry/openings.js';
-import type { UnitSettings } from '../units/unitFormatter.js';
+import type { UnitSettings, DimensionSettings } from '../units/unitFormatter.js';
 import { uiStore } from '../store/uiStore.js';
 
 export interface PngExportOptions {
@@ -26,6 +26,7 @@ export interface PngExportOptions {
   includeTitleBlock?: boolean;
   projectName?: string;
   unitSettings?: Partial<UnitSettings>;
+  dimensionSettings?: Partial<DimensionSettings>;
 }
 
 /**
@@ -119,18 +120,30 @@ export function renderToOffscreenCanvas(
   const clampRatio = Math.min(1.0, maxDim / Math.max(rawWidth, rawHeight, 1));
   const scale = Math.max(0.001, reqScale * clampRatio);
 
-  // 2. High-Clarity Annotation Sizing
-  // On a 2000px-4096px canvas, standard 12px text is a microscopic speck.
-  // We compute an optimal font size (32px to 48px in final output pixels)
-  // so measurement numbers are bold, large, and instantly readable.
+  // 2. High-Clarity Annotation Sizing with user-configured font size and position
+  const dimSettings: DimensionSettings = {
+    ...uiStore.getState().dimensionSettings,
+    ...options.dimensionSettings,
+  };
+  const userFontSize = dimSettings.fontSize || 12;
+  const fontRatio = userFontSize / 12;
+
   const estimatedMaxCanvasDim = Math.max(rawBbox.width * scale, rawBbox.height * scale);
-  const targetDimFontSizePx = Math.max(34, Math.min(64, Math.round(estimatedMaxCanvasDim / 55)));
-  const dimScaleMultiplier = Math.max(2.5, targetDimFontSizePx / 12);
+  const targetDimFontSizePx = Math.max(24, Math.min(96, Math.round((estimatedMaxCanvasDim / 55) * fontRatio)));
+  const dimScaleMultiplier = Math.max(1.8, targetDimFontSizePx / userFontSize);
   const annotationZoom = scale / dimScaleMultiplier;
 
-  // Dimension line clearance: ensure dimensions sit comfortably outside the walls
-  const dimOffsetMm = Math.max(650, Math.round(42 / annotationZoom));
-  const safePaddingMm = Math.max(options.paddingMm ?? 800, dimOffsetMm + 500);
+  // Dimension line clearance: honor user's chosen placement (outside, centered, inside)
+  const baseOffset = Math.max(dimSettings.offsetMm || 350, Math.round(36 / annotationZoom));
+  let dimOffsetMm = baseOffset;
+  if (dimSettings.position === 'centered') {
+    dimOffsetMm = 0;
+  } else if (dimSettings.position === 'inside') {
+    dimOffsetMm = -Math.abs(baseOffset);
+  } else {
+    dimOffsetMm = Math.abs(baseOffset);
+  }
+  const safePaddingMm = Math.max(options.paddingMm ?? 600, Math.abs(dimOffsetMm) + 300);
 
   // 3. Final Bounding Box & Canvas Dimensions
   const bbox = calculateProjectBounds(state, safePaddingMm);
@@ -277,7 +290,8 @@ export function renderToOffscreenCanvas(
         endV,
         dimOffsetMm,
         annotationZoom,
-        unitSettings
+        unitSettings,
+        { fontSize: userFontSize, position: dimSettings.position }
       );
     }
   }
@@ -289,7 +303,8 @@ export function renderToOffscreenCanvas(
       state.lines,
       annotationZoom,
       null,
-      unitSettings
+      unitSettings,
+      dimSettings
     );
   }
 

@@ -1,4 +1,6 @@
-import type { UnitSystem } from '../types.js';
+import type { UnitSystem, DimensionPosition, DimensionSettings } from '../types.js';
+
+export type { DimensionPosition, DimensionSettings };
 
 export type LengthUnit = 'mm' | 'cm' | 'm' | 'in' | 'ft' | 'ft_in';
 export type AreaUnit = 'sq_m' | 'sq_cm' | 'sq_mm' | 'sq_ft' | 'sq_in';
@@ -16,6 +18,12 @@ export const DEFAULT_UNIT_SETTINGS: UnitSettings = {
   areaUnit: 'sq_m',
   decimalPlaces: 2,
   fractionPrecision: 16,
+};
+
+export const DEFAULT_DIMENSION_SETTINGS: DimensionSettings = {
+  fontSize: 12,
+  position: 'outside',
+  offsetMm: 350,
 };
 
 function gcd(a: number, b: number): number {

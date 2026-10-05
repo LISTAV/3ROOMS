@@ -4,7 +4,14 @@ import {
   normalizeTextAngle,
   drawCornerAngleIndicator,
 } from '../renderer/DimensionRenderer.js';
-import { formatLength, type UnitSettings, DEFAULT_UNIT_SETTINGS } from '../../core/units/unitFormatter.js';
+import {
+  formatLength,
+  type UnitSettings,
+  type DimensionSettings,
+  DEFAULT_UNIT_SETTINGS,
+  DEFAULT_DIMENSION_SETTINGS,
+} from '../../core/units/unitFormatter.js';
+import { uiStore } from '../../core/store/uiStore.js';
 
 export interface DimensionLayerOptions {
   offsetMm?: number;
@@ -18,8 +25,9 @@ export interface DimensionLayerOptions {
 
 /**
  * Architectural CAD Dimension Layer rendering live parametric dimension tapes along walls.
- * Features 350mm outward offsets, 45-degree CAD slash tick marks, upright smart text orientation,
- * background text masking, and live multi-unit formatting.
+ * Features customizable font size & placement positions (outside, centered, inside),
+ * 45-degree CAD slash tick marks, upright smart text orientation, background text masking,
+ * and live multi-unit formatting.
  */
 export class DimensionLayer {
   public offsetMm: number;
@@ -38,22 +46,24 @@ export class DimensionLayer {
     this.baselineColor = options.baselineColor ?? '#64748b'; // Slate-500
     this.tickColor = options.tickColor ?? '#334155'; // Slate-700
     this.textColor = options.textColor ?? '#0f172a'; // Slate-900
-    this.textMaskColor = options.textMaskColor ?? 'rgba(255, 255, 255, 0.88)';
+    this.textMaskColor = options.textMaskColor ?? 'rgba(255, 255, 255, 0.92)';
   }
 
   /**
-   * Renders dimension lines for all given walls.
+   * Renders dimension lines for all given walls with active or custom dimension settings.
    */
   public render(
     ctx: CanvasRenderingContext2D,
     walls: Record<string, Wall>,
     vertices: Record<string, Vertex>,
     zoom: number,
-    unitSettings: UnitSettings = DEFAULT_UNIT_SETTINGS
+    unitSettings: UnitSettings = DEFAULT_UNIT_SETTINGS,
+    dimensionSettings?: DimensionSettings
   ): void {
     const wallList = Object.values(walls);
     if (wallList.length === 0) return;
 
+    const dimSettings = dimensionSettings || uiStore.getState().dimensionSettings || DEFAULT_DIMENSION_SETTINGS;
     const screenPixel = 1 / zoom;
 
     ctx.save();
@@ -63,7 +73,7 @@ export class DimensionLayer {
       const endV = vertices[wall.endId];
       if (!startV || !endV) continue;
 
-      this.renderWallDimension(ctx, startV, endV, zoom, screenPixel, unitSettings);
+      this.renderWallDimension(ctx, startV, endV, zoom, screenPixel, unitSettings, dimSettings);
     }
 
     // 2. Render CAD corner angle references at wall corners
@@ -104,24 +114,38 @@ export class DimensionLayer {
     end: Point2D,
     zoom: number,
     screenPixel: number,
-    unitSettings: UnitSettings = DEFAULT_UNIT_SETTINGS
+    unitSettings: UnitSettings = DEFAULT_UNIT_SETTINGS,
+    dimensionSettings?: DimensionSettings
   ): void {
-    const geom = computeDimensionLine(start, end, this.offsetMm);
+    const dimSettings = dimensionSettings || uiStore.getState().dimensionSettings || DEFAULT_DIMENSION_SETTINGS;
+
+    let effectiveOffset = dimSettings.offsetMm ?? this.offsetMm;
+    if (dimSettings.position === 'centered') {
+      effectiveOffset = 0;
+    } else if (dimSettings.position === 'inside') {
+      effectiveOffset = -Math.abs(effectiveOffset);
+    } else if (dimSettings.position === 'outside') {
+      effectiveOffset = Math.abs(effectiveOffset);
+    }
+
+    const geom = computeDimensionLine(start, end, effectiveOffset);
     if (geom.length < 1e-3) return;
 
     const { dimStart, dimEnd } = geom;
 
     ctx.save();
 
-    // 1. Extension Witness Lines (connecting wall endpoints to dimension line)
-    ctx.strokeStyle = this.witnessColor;
-    ctx.lineWidth = Math.max(0.75 * screenPixel, 1);
-    ctx.beginPath();
-    ctx.moveTo(start.x, start.y);
-    ctx.lineTo(dimStart.x, dimStart.y);
-    ctx.moveTo(end.x, end.y);
-    ctx.lineTo(dimEnd.x, dimEnd.y);
-    ctx.stroke();
+    // 1. Extension Witness Lines (connecting wall endpoints to dimension line, only if offset)
+    if (Math.abs(effectiveOffset) > 1e-2) {
+      ctx.strokeStyle = this.witnessColor;
+      ctx.lineWidth = Math.max(0.75 * screenPixel, 1);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(dimStart.x, dimStart.y);
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(dimEnd.x, dimEnd.y);
+      ctx.stroke();
+    }
 
     // 2. Dimension Baseline
     ctx.strokeStyle = this.baselineColor;
@@ -160,12 +184,14 @@ export class DimensionLayer {
     const label = formatLength(geom.length, unitSettings);
     const { angle: textAngle } = normalizeTextAngle(baselineAngle);
 
-    const fontSizePx = Math.max(11 * screenPixel, 10);
-    ctx.font = `${Math.round(fontSizePx)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    const baseFont = dimSettings.fontSize || 12;
+    const fontSizePx = Math.max(baseFont * screenPixel, 7 * screenPixel);
+    ctx.font = `600 ${Math.round(fontSizePx)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
     const textMetrics = ctx.measureText(label);
-    const textWidth = textMetrics.width || label.length * 7 * screenPixel;
-    const textHeight = fontSizePx * 1.25;
+    const textWidth = textMetrics.width || label.length * (baseFont * 0.6) * screenPixel;
+    const textHeight = Math.round((baseFont + 4) * screenPixel);
+    const padX = Math.round(5 * screenPixel);
 
     ctx.save();
     ctx.translate(mid.x, mid.y);
@@ -174,9 +200,9 @@ export class DimensionLayer {
     // Background mask rectangle so baseline does not intersect text
     ctx.fillStyle = this.textMaskColor;
     ctx.fillRect(
-      -textWidth / 2 - 4 * screenPixel,
+      -textWidth / 2 - padX,
       -textHeight / 2,
-      textWidth + 8 * screenPixel,
+      textWidth + padX * 2,
       textHeight
     );
 

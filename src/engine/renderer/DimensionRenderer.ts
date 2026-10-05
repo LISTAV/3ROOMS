@@ -79,9 +79,14 @@ export function computeDimensionLine(
   };
 }
 
+export interface DrawDimensionCustomOptions {
+  fontSize?: number;
+  position?: 'outside' | 'centered' | 'inside';
+}
+
 /**
  * Draws CAD dimension lines, extension witness lines, 45-degree architectural slash ticks,
- * and normalized upright text label.
+ * and normalized upright text label. Supports customizable font size and placement position.
  */
 export function drawDimension(
   ctx: CanvasRenderingContext2D,
@@ -89,9 +94,21 @@ export function drawDimension(
   end: Point2D,
   offsetMm: number = 300,
   zoom: number,
-  unitSettings?: Partial<UnitSettings>
+  unitSettings?: Partial<UnitSettings>,
+  customOptions?: DrawDimensionCustomOptions
 ): void {
-  const geom = computeDimensionLine(start, end, offsetMm);
+  // Compute effective offset based on position setting
+  const positionMode = customOptions?.position;
+  let effectiveOffset = offsetMm;
+  if (positionMode === 'centered') {
+    effectiveOffset = 0;
+  } else if (positionMode === 'inside') {
+    effectiveOffset = -Math.abs(offsetMm);
+  } else if (positionMode === 'outside') {
+    effectiveOffset = Math.abs(offsetMm);
+  }
+
+  const geom = computeDimensionLine(start, end, effectiveOffset);
   if (geom.length < 1e-3) return;
 
   const { dimStart, dimEnd } = geom;
@@ -99,15 +116,17 @@ export function drawDimension(
 
   ctx.save();
 
-  // 1. Extension witness lines (thin lines connecting wall endpoints to dimension baseline)
-  ctx.strokeStyle = '#94a3b8'; // slate-400
-  ctx.lineWidth = 1 * screenPixel;
-  ctx.beginPath();
-  ctx.moveTo(start.x, start.y);
-  ctx.lineTo(dimStart.x, dimStart.y);
-  ctx.moveTo(end.x, end.y);
-  ctx.lineTo(dimEnd.x, dimEnd.y);
-  ctx.stroke();
+  // 1. Extension witness lines (only needed when offset from wall/line)
+  if (Math.abs(effectiveOffset) > 1e-2) {
+    ctx.strokeStyle = '#94a3b8'; // slate-400
+    ctx.lineWidth = 1 * screenPixel;
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(dimStart.x, dimStart.y);
+    ctx.moveTo(end.x, end.y);
+    ctx.lineTo(dimEnd.x, dimEnd.y);
+    ctx.stroke();
+  }
 
   // 2. Dimension baseline
   ctx.strokeStyle = '#64748b'; // slate-500
@@ -145,10 +164,15 @@ export function drawDimension(
   const label = formatDimension(geom.length, unitSettings);
   const { angle: textAngle } = normalizeTextAngle(baselineAngle);
 
-  ctx.font = `600 ${Math.round(12 * screenPixel)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+  // Scalable user font size
+  const baseFontSize = customOptions?.fontSize ?? uiStore.getState().dimensionSettings?.fontSize ?? 12;
+  const fontSizePx = Math.round(baseFontSize * screenPixel);
+  ctx.font = `600 ${fontSizePx}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
   const textMetrics = ctx.measureText(label);
-  const textWidth = textMetrics.width || label.length * 7 * screenPixel;
-  const textHeight = 14 * screenPixel;
+  const textWidth = textMetrics.width || label.length * (baseFontSize * 0.6) * screenPixel;
+  const textHeight = Math.round((baseFontSize + 3) * screenPixel);
+  const padX = Math.round(5 * screenPixel);
 
   ctx.save();
   ctx.translate(mid.x, mid.y);
@@ -157,9 +181,9 @@ export function drawDimension(
   // Background pill/mask to prevent baseline from cutting through text
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(
-    -textWidth / 2 - 4 * screenPixel,
+    -textWidth / 2 - padX,
     -textHeight / 2,
-    textWidth + 8 * screenPixel,
+    textWidth + padX * 2,
     textHeight
   );
 

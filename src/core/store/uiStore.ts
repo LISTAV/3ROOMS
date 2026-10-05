@@ -3,7 +3,10 @@ import type { Point2D, UnitSystem, LineStyle, ArrowheadStyle } from '../types.js
 import {
   type UnitSettings,
   type LengthUnit,
+  type DimensionSettings,
+  type DimensionPosition,
   DEFAULT_UNIT_SETTINGS,
+  DEFAULT_DIMENSION_SETTINGS,
 } from '../units/unitFormatter.js';
 
 export type ToolType = 'select' | 'wall' | 'door' | 'double_door' | 'window' | 'pan' | 'measure' | 'furniture' | 'line';
@@ -17,6 +20,7 @@ export interface UIStoreState {
   gridSpacingMm: number;
   unitSystem: UnitSystem;
   unitSettings: UnitSettings;
+  dimensionSettings: DimensionSettings;
   showCatalog: boolean;
   showInspector: boolean;
   showLayers: boolean;
@@ -44,6 +48,10 @@ export interface UIStoreActions {
   setGridSpacing: (spacingMm: number) => void;
   setUnitSystem: (system: UnitSystem) => void;
   setUnitSettings: (settings: Partial<UnitSettings>) => void;
+  setDimensionSettings: (settings: Partial<DimensionSettings>) => void;
+  setDimensionFontSize: (fontSize: number) => void;
+  setDimensionPosition: (position: DimensionPosition) => void;
+  setDimensionOffset: (offsetMm: number) => void;
   setLengthUnit: (unit: LengthUnit) => void;
   cycleUnitSystem: () => void;
   toggleCatalog: () => void;
@@ -58,7 +66,7 @@ export interface UIStoreActions {
 
 export type UIStore = UIStoreState & UIStoreActions;
 
-export { formatLength, formatArea } from '../units/unitFormatter.js';
+export { formatLength, formatArea, DEFAULT_DIMENSION_SETTINGS } from '../units/unitFormatter.js';
 
 export function createUIStore(initial?: Partial<UIStoreState>) {
   return createStore<UIStore>((set) => ({
@@ -70,6 +78,7 @@ export function createUIStore(initial?: Partial<UIStoreState>) {
     gridSpacingMm: initial?.gridSpacingMm ?? 100,
     unitSystem: initial?.unitSystem ?? 'metric_mm',
     unitSettings: initial?.unitSettings ?? { ...DEFAULT_UNIT_SETTINGS },
+    dimensionSettings: initial?.dimensionSettings ?? { ...DEFAULT_DIMENSION_SETTINGS },
     showCatalog: initial?.showCatalog ?? true,
     showInspector: initial?.showInspector ?? true,
     showLayers: initial?.showLayers ?? false,
@@ -117,6 +126,34 @@ export function createUIStore(initial?: Partial<UIStoreState>) {
         unitSettings: {
           ...s.unitSettings,
           ...settings,
+        },
+      })),
+    setDimensionSettings: (settings: Partial<DimensionSettings>) =>
+      set((s) => ({
+        dimensionSettings: {
+          ...s.dimensionSettings,
+          ...settings,
+        },
+      })),
+    setDimensionFontSize: (fontSize: number) =>
+      set((s) => ({
+        dimensionSettings: {
+          ...s.dimensionSettings,
+          fontSize: Math.max(8, Math.min(48, fontSize)),
+        },
+      })),
+    setDimensionPosition: (position: DimensionPosition) =>
+      set((s) => ({
+        dimensionSettings: {
+          ...s.dimensionSettings,
+          position,
+        },
+      })),
+    setDimensionOffset: (offsetMm: number) =>
+      set((s) => ({
+        dimensionSettings: {
+          ...s.dimensionSettings,
+          offsetMm: Math.max(0, Math.min(2000, offsetMm)),
         },
       })),
     setLengthUnit: (unit: LengthUnit) =>

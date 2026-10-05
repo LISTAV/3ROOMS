@@ -376,10 +376,12 @@ export class FileManager {
     try {
       const state = planStore.getState();
       const unitSettings = uiStore.getState().unitSettings;
+      const dimensionSettings = uiStore.getState().dimensionSettings;
       const blob = await exportToPngBlob(state, {
         scale: 1.5,
         maxDimension: 4096,
         unitSettings,
+        dimensionSettings,
         projectName: this.projectName,
       });
       const baseName = this.projectName.replace(/\.(floorplan|json)$/i, '');
@@ -418,8 +420,10 @@ export class FileManager {
     try {
       const state = planStore.getState();
       const unitSettings = uiStore.getState().unitSettings;
+      const dimensionSettings = uiStore.getState().dimensionSettings;
       const resolvedOptions: PdfExportOptions = {
         unitSettings,
+        dimensionSettings,
         projectName: this.projectName,
         ...options,
       };

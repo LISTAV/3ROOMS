@@ -9,6 +9,7 @@ import {
   type PdfExportOptions,
   renderSheetPreview,
 } from '../../core/export/pdfExporter.js';
+import type { DimensionPosition } from '../../core/types.js';
 
 /**
  * Architectural PDF Sheet Export Modal Dialog.
@@ -28,6 +29,9 @@ export class PdfExportModal {
   private includeLines: boolean = true;
   private includeRooms: boolean = true;
   private includeFurniture: boolean = true;
+  private selectedDimensionFontSize: number = 12;
+  private selectedDimensionPosition: DimensionPosition = 'outside';
+  private selectedDimensionOffsetMm: number = 350;
   private sheetTitle: string = 'Untitled Floor Plan';
   private sheetNumber: string = 'A-101';
   private isExporting: boolean = false;
@@ -40,6 +44,10 @@ export class PdfExportModal {
 
   public open(): void {
     this.isOpen = true;
+    const curDim = uiStore.getState().dimensionSettings;
+    this.selectedDimensionFontSize = curDim.fontSize;
+    this.selectedDimensionPosition = curDim.position;
+    this.selectedDimensionOffsetMm = curDim.offsetMm;
     this.sheetTitle = fileManager.getProjectName().replace(/\.(floorplan|json)$/i, '') || 'Floor Plan';
     this.render();
     document.body.appendChild(this.element);
@@ -68,6 +76,11 @@ export class PdfExportModal {
       projectName: this.sheetTitle,
       sheetNumber: this.sheetNumber,
       unitSettings: uiStore.getState().unitSettings,
+      dimensionSettings: {
+        fontSize: this.selectedDimensionFontSize,
+        position: this.selectedDimensionPosition,
+        offsetMm: this.selectedDimensionOffsetMm,
+      },
     };
   }
 
@@ -202,7 +215,32 @@ export class PdfExportModal {
                 </div>
               </div>
 
-              <!-- 6. Metadata -->
+              <!-- 6. Measurement Dimension Style -->
+              <div class="form-group" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); padding: 10px; border-radius: 8px;">
+                <label class="form-label" style="margin-bottom: 8px;">Measurement Units & Dimensions</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                  <div>
+                    <label style="display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 4px;">Font Size</label>
+                    <select class="form-select" id="pdf-dim-font-size" style="width: 100%;">
+                      <option value="10" ${this.selectedDimensionFontSize === 10 ? 'selected' : ''}>Small (10px)</option>
+                      <option value="12" ${this.selectedDimensionFontSize === 12 ? 'selected' : ''}>Standard (12px)</option>
+                      <option value="15" ${this.selectedDimensionFontSize === 15 ? 'selected' : ''}>Medium (15px)</option>
+                      <option value="18" ${this.selectedDimensionFontSize === 18 ? 'selected' : ''}>Large (18px)</option>
+                      <option value="22" ${this.selectedDimensionFontSize === 22 ? 'selected' : ''}>Extra Large (22px)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 11px; color: var(--text-dim); margin-bottom: 4px;">Position</label>
+                    <select class="form-select" id="pdf-dim-position" style="width: 100%;">
+                      <option value="outside" ${this.selectedDimensionPosition === 'outside' ? 'selected' : ''}>Outside (Above)</option>
+                      <option value="centered" ${this.selectedDimensionPosition === 'centered' ? 'selected' : ''}>Centered (Inline)</option>
+                      <option value="inside" ${this.selectedDimensionPosition === 'inside' ? 'selected' : ''}>Inside (Below)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 7. Metadata -->
               <div class="form-group">
                 <label class="form-label" for="pdf-project-title">Document Project Title</label>
                 <input type="text" class="form-input" id="pdf-project-title" value="${this.sheetTitle}" />
@@ -312,6 +350,19 @@ export class PdfExportModal {
     const furnCb = this.element.querySelector<HTMLInputElement>('#pdf-inc-furn');
     furnCb?.addEventListener('change', () => {
       this.includeFurniture = furnCb.checked;
+      this.updatePreview();
+    });
+
+    // Measurement font size and position
+    const dimFontSelect = this.element.querySelector<HTMLSelectElement>('#pdf-dim-font-size');
+    dimFontSelect?.addEventListener('change', () => {
+      this.selectedDimensionFontSize = parseInt(dimFontSelect.value, 10) || 12;
+      this.updatePreview();
+    });
+
+    const dimPosSelect = this.element.querySelector<HTMLSelectElement>('#pdf-dim-position');
+    dimPosSelect?.addEventListener('change', () => {
+      this.selectedDimensionPosition = (dimPosSelect.value as DimensionPosition) || 'outside';
       this.updatePreview();
     });
 

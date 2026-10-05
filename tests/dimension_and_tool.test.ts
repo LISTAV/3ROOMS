@@ -3,6 +3,7 @@ import {
   formatDimension,
   normalizeTextAngle,
   computeDimensionLine,
+  drawDimension,
 } from '../src/engine/renderer/DimensionRenderer.js';
 import { WallTool } from '../src/engine/tools/WallTool.js';
 import { ToolManager } from '../src/engine/tools/ToolManager.js';
@@ -11,6 +12,7 @@ import { Viewport } from '../src/engine/viewport/Viewport.js';
 import { SnapEngine } from '../src/core/snap/SnapEngine.js';
 import { SpatialIndex } from '../src/core/spatial/SpatialIndex.js';
 import { planStore } from '../src/core/store/planStore.js';
+import { uiStore, DEFAULT_DIMENSION_SETTINGS } from '../src/core/store/uiStore.js';
 import { distance, dot } from '../src/core/math/vector.js';
 
 describe('CAD Dimension Renderer', () => {
@@ -228,3 +230,78 @@ describe('Wall Tool State Machine & Chaining', () => {
     expect(wallTool.firstVertexId).toBeNull();
   });
 });
+
+describe('Dimension Font Size and Position Customization', () => {
+  it('has DEFAULT_DIMENSION_SETTINGS with fontSize 12, outside position, and 350mm offset', () => {
+    expect(DEFAULT_DIMENSION_SETTINGS.fontSize).toBe(12);
+    expect(DEFAULT_DIMENSION_SETTINGS.position).toBe('outside');
+    expect(DEFAULT_DIMENSION_SETTINGS.offsetMm).toBe(350);
+  });
+
+  it('updates dimension settings in uiStore via setters', () => {
+    uiStore.getState().setDimensionFontSize(18);
+    expect(uiStore.getState().dimensionSettings.fontSize).toBe(18);
+
+    uiStore.getState().setDimensionPosition('centered');
+    expect(uiStore.getState().dimensionSettings.position).toBe('centered');
+
+    uiStore.getState().setDimensionPosition('inside');
+    expect(uiStore.getState().dimensionSettings.position).toBe('inside');
+
+    uiStore.getState().setDimensionOffset(500);
+    expect(uiStore.getState().dimensionSettings.offsetMm).toBe(500);
+
+    uiStore.getState().setDimensionSettings({ fontSize: 15, position: 'outside', offsetMm: 250 });
+    expect(uiStore.getState().dimensionSettings.fontSize).toBe(15);
+    expect(uiStore.getState().dimensionSettings.position).toBe('outside');
+    expect(uiStore.getState().dimensionSettings.offsetMm).toBe(250);
+  });
+
+  it('drawDimension renders without throwing for centered, inside, and outside positions and custom font sizes', () => {
+    const mockCtx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      setLineDash: vi.fn(),
+      measureText: vi.fn(() => ({ width: 60 })),
+      fillText: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      roundRect: vi.fn(),
+      font: '',
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      textAlign: '',
+      textBaseline: '',
+    } as unknown as CanvasRenderingContext2D;
+
+    const start = { x: 0, y: 0 };
+    const end = { x: 3000, y: 0 };
+
+    // 1. Outside position with 16px font
+    expect(() => {
+      drawDimension(mockCtx, start, end, 300, 1.0, undefined, { fontSize: 16, position: 'outside' });
+    }).not.toThrow();
+    expect(mockCtx.font).toContain('16px');
+
+    // 2. Centered position with 20px font
+    expect(() => {
+      drawDimension(mockCtx, start, end, 300, 1.0, undefined, { fontSize: 20, position: 'centered' });
+    }).not.toThrow();
+    expect(mockCtx.font).toContain('20px');
+
+    // 3. Inside position with 10px font
+    expect(() => {
+      drawDimension(mockCtx, start, end, 300, 1.0, undefined, { fontSize: 10, position: 'inside' });
+    }).not.toThrow();
+    expect(mockCtx.font).toContain('10px');
+  });
+});
+

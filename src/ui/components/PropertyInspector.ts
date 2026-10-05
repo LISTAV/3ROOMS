@@ -3,7 +3,7 @@ import { uiStore, formatLength, formatArea } from '../../core/store/uiStore.js';
 import { getIconSvg } from '../icons.js';
 import { distance } from '../../core/math/vector.js';
 import { parseLengthToMm } from '../../core/units/unitFormatter.js';
-import type { OpeningType, UnitSystem, ImageInstance, LineEntity, LineStyle, ArrowheadStyle, FurnitureInstance, Point2D } from '../../core/types.js';
+import type { OpeningType, UnitSystem, ImageInstance, LineEntity, LineStyle, ArrowheadStyle, FurnitureInstance, Point2D, DimensionPosition } from '../../core/types.js';
 
 export class PropertyInspector {
   public element: HTMLElement;
@@ -139,6 +139,60 @@ export class PropertyInspector {
           </div>
         </div>
       </div>
+
+      <div class="property-section">
+        <div class="section-title">
+          <span>📏 Measurement & Dimensions</span>
+        </div>
+
+        <!-- Position: Outside, Centered, Inside -->
+        <div class="form-group">
+          <label>Dimension Label Position</label>
+          <div class="segmented-control" id="dim-position-control">
+            <button class="segment-btn ${ui.dimensionSettings.position === 'outside' ? 'active' : ''}" data-dim-pos="outside">Outside</button>
+            <button class="segment-btn ${ui.dimensionSettings.position === 'centered' ? 'active' : ''}" data-dim-pos="centered">Centered</button>
+            <button class="segment-btn ${ui.dimensionSettings.position === 'inside' ? 'active' : ''}" data-dim-pos="inside">Inside</button>
+          </div>
+        </div>
+
+        <!-- Font Size Presets & Custom -->
+        <div class="form-group">
+          <label>Dimension Font Size</label>
+          <div class="preset-pill-group" style="margin-bottom: 8px;">
+            ${[10, 12, 14, 16, 20, 24]
+              .map(
+                (size) => `
+              <button class="preset-pill ${ui.dimensionSettings.fontSize === size ? 'active' : ''}" data-dim-fontsize="${size}">${size}px</button>
+            `
+              )
+              .join('')}
+          </div>
+          <div class="input-with-unit">
+            <input type="number" id="dim-fontsize-input" min="8" max="48" step="1" value="${ui.dimensionSettings.fontSize}" />
+            <span class="unit-addon">px</span>
+          </div>
+        </div>
+
+        <!-- Offset Distance Presets & Custom -->
+        <div class="form-group">
+          <label>Dimension Offset Distance</label>
+          <div class="preset-pill-group" style="margin-bottom: 8px;">
+            ${[150, 250, 350, 500, 750]
+              .map(
+                (offset) => `
+              <button class="preset-pill ${ui.dimensionSettings.offsetMm === offset ? 'active' : ''}" data-dim-offset="${offset}">${formatLength(offset, ui.unitSettings)}</button>
+            `
+              )
+              .join('')}
+          </div>
+          <div class="input-with-unit">
+            <input type="text" id="dim-offset-input" value="${formatLength(ui.dimensionSettings.offsetMm, ui.unitSettings)}" placeholder="e.g. 350mm, 35cm" />
+          </div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 4px;">
+            ${ui.dimensionSettings.position === 'centered' ? 'Centered mode aligns measurement text directly along walls & lines.' : 'Controls outward/inward distance of dimension lines from walls.'}
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -183,6 +237,26 @@ export class PropertyInspector {
         <div class="form-group">
           <label>Custom Thickness</label>
           <input type="text" id="wall-thickness-custom" value="${formatLength(wall.thickness, ui.unitSettings)}" placeholder="e.g. 15cm, 200mm, 6in" />
+        </div>
+
+        <div class="form-group" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); padding: 8px 10px; border-radius: 8px; margin-top: 8px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Dimension Annotations</div>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <div class="segmented-control" style="flex: 1;">
+              <button class="segment-btn ${ui.dimensionSettings.position === 'outside' ? 'active' : ''}" data-dim-pos="outside">Outside</button>
+              <button class="segment-btn ${ui.dimensionSettings.position === 'centered' ? 'active' : ''}" data-dim-pos="centered">Centered</button>
+              <button class="segment-btn ${ui.dimensionSettings.position === 'inside' ? 'active' : ''}" data-dim-pos="inside">Inside</button>
+            </div>
+          </div>
+          <div class="preset-pill-group">
+            ${[10, 12, 14, 16, 20]
+              .map(
+                (size) => `
+              <button class="preset-pill ${ui.dimensionSettings.fontSize === size ? 'active' : ''}" data-dim-fontsize="${size}">${size}px</button>
+            `
+              )
+              .join('')}
+          </div>
         </div>
 
         <div class="section-divider"></div>
@@ -538,6 +612,26 @@ export class PropertyInspector {
           <input type="checkbox" id="line-show-measurement" ${line.showMeasurement ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px;" />
         </div>
 
+        <div class="form-group" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); padding: 8px 10px; border-radius: 8px; margin-top: 8px;">
+          <div style="font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">Dimension Tag Style</div>
+          <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+            <div class="segmented-control" style="flex: 1;">
+              <button class="segment-btn ${ui.dimensionSettings.position === 'outside' ? 'active' : ''}" data-dim-pos="outside">Outside</button>
+              <button class="segment-btn ${ui.dimensionSettings.position === 'centered' ? 'active' : ''}" data-dim-pos="centered">Centered</button>
+              <button class="segment-btn ${ui.dimensionSettings.position === 'inside' ? 'active' : ''}" data-dim-pos="inside">Inside</button>
+            </div>
+          </div>
+          <div class="preset-pill-group">
+            ${[10, 12, 14, 16, 20]
+              .map(
+                (size) => `
+              <button class="preset-pill ${ui.dimensionSettings.fontSize === size ? 'active' : ''}" data-dim-fontsize="${size}">${size}px</button>
+            `
+              )
+              .join('')}
+          </div>
+        </div>
+
         <!-- Assigned Layer -->
         <div class="form-group" style="margin-top: 10px;">
           <label>Assigned Layer</label>
@@ -688,6 +782,43 @@ export class PropertyInspector {
         const step = parseInt(btn.dataset.grid ?? '100', 10);
         if (!isNaN(step)) uiStore.getState().setGridSpacing(step);
       });
+    });
+
+    // Measurement & Dimension Annotations Controls
+    this.element.querySelectorAll<HTMLButtonElement>('[data-dim-pos]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pos = btn.dataset.dimPos as DimensionPosition;
+        if (pos) uiStore.getState().setDimensionPosition(pos);
+      });
+    });
+
+    this.element.querySelectorAll<HTMLButtonElement>('[data-dim-fontsize]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const sz = parseInt(btn.dataset.dimFontsize ?? '12', 10);
+        if (!isNaN(sz) && sz >= 6) uiStore.getState().setDimensionFontSize(sz);
+      });
+    });
+
+    this.element.querySelector<HTMLInputElement>('#dim-fontsize-input')?.addEventListener('change', (e) => {
+      const sz = parseInt((e.target as HTMLInputElement).value, 10);
+      if (!isNaN(sz) && sz >= 6 && sz <= 72) {
+        uiStore.getState().setDimensionFontSize(sz);
+      }
+    });
+
+    this.element.querySelectorAll<HTMLButtonElement>('[data-dim-offset]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const off = parseInt(btn.dataset.dimOffset ?? '350', 10);
+        if (!isNaN(off)) uiStore.getState().setDimensionOffset(off);
+      });
+    });
+
+    this.element.querySelector<HTMLInputElement>('#dim-offset-input')?.addEventListener('change', (e) => {
+      const raw = (e.target as HTMLInputElement).value;
+      const off = parseLengthToMm(raw, ui.unitSettings.lengthUnit);
+      if (off !== null && off >= 0) {
+        uiStore.getState().setDimensionOffset(off);
+      }
     });
 
     // 2. Wall Controls

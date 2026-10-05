@@ -2,8 +2,9 @@ import { jsPDF } from 'jspdf';
 import type { FloorPlanState } from '../types.js';
 import { calculateProjectBounds } from './svgExporter.js';
 import { renderToOffscreenCanvas } from './pngExporter.js';
-import type { UnitSettings } from '../units/unitFormatter.js';
+import type { UnitSettings, DimensionSettings } from '../units/unitFormatter.js';
 import { uiStore } from '../store/uiStore.js';
+import { drawDimension } from '../../engine/renderer/DimensionRenderer.js';
 
 export type PaperSize = 'A4' | 'A3' | 'A2' | 'A1' | 'A0' | 'Letter' | 'Legal' | 'Tabloid' | 'ArchD' | 'ArchE';
 
@@ -47,6 +48,7 @@ export interface PdfExportOptions {
   sheetNumber?: string;
   scaleDescription?: string;
   unitSettings?: Partial<UnitSettings>;
+  dimensionSettings?: Partial<DimensionSettings>;
 }
 
 export interface ResolvedSheetLayout {
@@ -197,6 +199,7 @@ export async function exportToPdfBlob(
     includeImages: options.includeImages ?? true,
     includeTitleBlock: false,
     unitSettings: options.unitSettings,
+    dimensionSettings: options.dimensionSettings,
     projectName: options.projectName,
   });
 
@@ -367,6 +370,38 @@ export function renderSheetPreview(
       ctx.moveTo(line.start.x, line.start.y);
       ctx.lineTo(line.end.x, line.end.y);
       ctx.stroke();
+    }
+  }
+
+  // Render wall dimensions on sheet preview with chosen font size and position
+  if (options.includeDimensions ?? true) {
+    const dimSettings: DimensionSettings = {
+      ...uiStore.getState().dimensionSettings,
+      ...options.dimensionSettings,
+    };
+    let dimOffsetMm = dimSettings.offsetMm ?? 350;
+    if (dimSettings.position === 'centered') {
+      dimOffsetMm = 0;
+    } else if (dimSettings.position === 'inside') {
+      dimOffsetMm = -Math.abs(dimOffsetMm);
+    } else {
+      dimOffsetMm = Math.abs(dimOffsetMm);
+    }
+
+    for (const wall of Object.values(state.walls || {})) {
+      const v1 = state.vertices[wall.startId];
+      const v2 = state.vertices[wall.endId];
+      if (!v1 || !v2) continue;
+
+      drawDimension(
+        ctx,
+        v1,
+        v2,
+        dimOffsetMm,
+        planScale,
+        options.unitSettings,
+        { fontSize: dimSettings.fontSize, position: dimSettings.position }
+      );
     }
   }
 

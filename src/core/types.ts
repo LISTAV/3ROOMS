@@ -53,10 +53,21 @@ export interface Opening {
   layerId?: string;
 }
 
-/**
- * Supported engineering/architectural unit systems.
- */
 export type UnitSystem = 'metric_mm' | 'metric_m' | 'imperial_ft';
+
+/**
+ * Position of dimension measurement labels relative to the wall or line baseline.
+ * - 'outside': Offset outward from the wall/line (default above).
+ * - 'centered': Centered directly inline on the wall or line centerline with a background mask.
+ * - 'inside': Offset inward to the opposite side of the wall/line.
+ */
+export type DimensionPosition = 'outside' | 'centered' | 'inside';
+
+export interface DimensionSettings {
+  fontSize: number; // Base annotation font size in pt/px (default: 12)
+  position: DimensionPosition; // Placement position ('outside' | 'centered' | 'inside')
+  offsetMm: number; // Distance in millimeters from wall/line (default: 350)
+}
 
 /**
  * Planar room face bounded by vertices and walls.
